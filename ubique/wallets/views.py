@@ -1,3 +1,5 @@
+import uuid
+
 from rest_framework import generics
 
 from .models import CryptoAccount, PaymentCard
@@ -15,6 +17,10 @@ class _OwnedMixin:
 class PaymentCardListCreate(_OwnedMixin, generics.ListCreateAPIView):
     model = PaymentCard
     serializer_class = PaymentCardSerializer
+
+    def perform_create(self, serializer):
+        token = serializer.validated_data.get("provider_token") or f"tok_{uuid.uuid4().hex[:12]}"
+        serializer.save(user=self.request.user, provider_token=token)
 
 
 class PaymentCardDetail(_OwnedMixin, generics.RetrieveDestroyAPIView):

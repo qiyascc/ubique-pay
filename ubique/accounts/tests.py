@@ -66,3 +66,50 @@ class TonAmountTests(TestCase):
         from ubique.providers.real import TonChainSender
         self.assertEqual(TonChainSender.to_jetton_units(Decimal("1.5")), 1_500_000)
         self.assertEqual(TonChainSender.to_jetton_units("0.000001"), 1)
+
+
+@override_settings(
+    TELEGRAM_BOT_TOKEN=BOT_TOKEN,
+    KYC_PROVIDER="ubique.accounts.kyc.DemoKycProvider",
+)
+class MiniAppJourneyTests(TestCase):
+    """The exact API sequence the Telegram Mini App performs."""
+
+    def setUp(self):
+        self.c = APIClient()
+
+    def test_full_mini_app_journey(self):
+        # 1) Telegram sign-in
+        r = self.c.post(
+            "/api/v1/auth/telegram/", {"init_data": _init_data(user_id=555)}, format="json"
+        )
+        self.c.credentials(HTTP_AUTHORIZATION="Token " + r.json()["token"])
+
+        # 2) KYC gate → start (demo provider verifies)
+        self.assertEqual(self.c.get("/api/v1/auth/me/").json()["kyc_status"], "unverified")
+        self.c.post("/api/v1/auth/kyc/start/")
+        self.assertEqual(self.c.get("/api/v1/auth/me/").json()["kyc_status"], "verified")
+
+        # 3) add a card
+        card = self.c.post(
+            "/api/v1/wallets/cards/",
+            {"brand": "Visa", "last4": "1436", "provider_token": ""}, format="json",
+        ).json()
+
+        # 4) quote + 5) confirm transfer
+        q = self.c.post(
+            "/api/v1/quotes/",
+            {"send_amount": "200", "send_currency": "USD", "receive_currency": "AZN"},
+            format="json",
+        )
+        self.assertEqual(q.status_code, 200)
+        t = self.c.post(
+            "/api/v1/transfers/",
+            {
+                "source_card_id": card["id"], "recipient_card_last4": "9999",
+                "send_amount": "200", "send_currency": "USD",
+                "receive_currency": "AZN", "idempotency_key": "mj-1",
+            }, format="json",
+        )
+        self.assertEqual(t.status_code, 201)
+        self.assertEqual(t.json()["status"], "completed")

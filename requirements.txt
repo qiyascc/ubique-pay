@@ -6,4 +6,4 @@ gunicorn>=23.0
 
 # Telegram bot + real TON transfers (used by bot.py and the real adapters).
 aiogram>=3.13
-tonutils>=0.3
+tonutils>=2.1

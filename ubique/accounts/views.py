@@ -5,8 +5,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+import hashlib
+import hmac
+import json
+
 from . import otp
-from .models import User
+from .kyc import get_provider
+from .models import KycStatus, User
 from .telegram import TelegramAuthError, validate_init_data
 
 
@@ -89,3 +94,36 @@ class MeView(APIView):
             "telegram_id": u.telegram_id,
             "kyc_status": u.kyc_status,
         })
+
+
+class KycStartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        return Response(get_provider().start(request.user))
+
+
+class SumsubWebhookView(APIView):
+    """Sumsub applicant-reviewed webhook (X-Payload-Digest = HMAC-SHA256)."""
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        secret = settings.SUMSUB_WEBHOOK_SECRET
+        signature = request.headers.get("X-Payload-Digest", "")
+        expected = hmac.new(secret.encode(), request.body, hashlib.sha256).hexdigest() if secret else ""
+        if not secret or not hmac.compare_digest(expected, signature):
+            return Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        data = json.loads(request.body.decode() or "{}")
+        external_id = data.get("externalUserId")
+        answer = (data.get("reviewResult") or {}).get("reviewAnswer")
+        user = User.objects.filter(id=external_id).first()
+        if user:
+            if answer == "GREEN":
+                user.kyc_status = KycStatus.VERIFIED
+            elif answer == "RED":
+                user.kyc_status = KycStatus.REJECTED
+            user.save(update_fields=["kyc_status"])
+        return Response({"detail": "ok"})

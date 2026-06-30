@@ -86,10 +86,14 @@ class TonChainSender(ChainSender):
          deployed automatically on first transfer.
     """
 
+    GAS_NANOTON = 50_000_000  # 0.05 TON for gas + jetton-wallet deploy
+
     def __init__(self):
         self.mnemonic = os.environ.get("TON_MNEMONIC", "")
         self.api_key = os.environ.get("TON_API_KEY", "")
         self.is_testnet = os.environ.get("TON_TESTNET", "0") == "1"
+        # USDT jetton master; overridable for testnet/test jettons.
+        self.master = os.environ.get("TON_USDT_MASTER", USDT_TON_MASTER)
         if not self.mnemonic:
             raise ImproperlyConfigured("TonChainSender needs TON_MNEMONIC.")
 
@@ -98,33 +102,41 @@ class TonChainSender(ChainSender):
         """USDT decimal amount → integer jetton units (6 decimals)."""
         return int(Decimal(str(usdt_amount)) * (10 ** USDT_DECIMALS))
 
+    def _client_and_wallet(self):
+        from tonutils.clients import ToncenterClient
+        from tonutils.clients.base import NetworkGlobalID
+        from tonutils.contracts.wallet import WalletV4R2
+
+        net = NetworkGlobalID.TESTNET if self.is_testnet else NetworkGlobalID.MAINNET
+        client = ToncenterClient(net, api_key=self.api_key or None)
+        wallet, _pub, _priv, _words = WalletV4R2.from_mnemonic(client, self.mnemonic.split())
+        return client, wallet
+
+    def treasury_address(self) -> str:
+        """Derive the treasury wallet address (offline, for diagnostics)."""
+        _client, wallet = self._client_and_wallet()
+        return str(wallet.address)
+
     def send(self, *, network, to_address, usdt_amount, idempotency_key) -> ChainResult:
         if network.upper() != "TON":
             raise NotImplementedError(f"TonChainSender only handles TON, not {network}.")
 
         import asyncio
 
-        from tonutils.client import ToncenterV3Client
-        from tonutils.jetton import JettonWalletStablecoin
-        from tonutils.utils import to_nano
-        from tonutils.wallet import WalletV4R2
+        from tonutils.contracts import JettonTransferBuilder
 
         async def _run():
-            client = ToncenterV3Client(api_key=self.api_key, is_testnet=self.is_testnet)
-            wallet, _, _, _ = WalletV4R2.from_mnemonic(client, self.mnemonic.split())
-            body = JettonWalletStablecoin.build_transfer_body(
+            _client, wallet = self._client_and_wallet()
+            builder = JettonTransferBuilder(
+                destination=to_address,
                 jetton_amount=self.to_jetton_units(usdt_amount),
-                recipient_address=to_address,
+                jetton_master_address=self.master,
                 response_address=wallet.address,
+                amount=self.GAS_NANOTON,
             )
-            jetton_wallet = await JettonWalletStablecoin.get_wallet_address(
-                client, wallet.address, USDT_TON_MASTER
-            )
-            return await wallet.transfer(
-                destination=jetton_wallet,
-                amount=to_nano(0.05),  # TON for gas + jetton-wallet deploy
-                body=body,
-            )
+            message = builder.build(wallet)
+            ext = await wallet.transfer_message(message)
+            return getattr(ext, "hash", None) or str(ext)
 
         tx_hash = asyncio.run(_run())
         return ChainResult(tx_hash=str(tx_hash), status="pending", network="TON")

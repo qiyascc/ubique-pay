@@ -171,6 +171,11 @@ CONTENT_SECURITY_POLICY = os.environ.get(
     "script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 )
 
+# --- KYC ------------------------------------------------------------------
+# Demo provider auto-verifies; switch to Sumsub in production.
+KYC_PROVIDER = os.environ.get("KYC_PROVIDER", "ubique.accounts.kyc.DemoKycProvider")
+SUMSUB_WEBHOOK_SECRET = os.environ.get("SUMSUB_WEBHOOK_SECRET", "")
+
 # --- Telegram Mini App ---------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "")

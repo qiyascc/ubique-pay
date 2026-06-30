@@ -74,28 +74,45 @@ shown on screen), verify identity (demo), add a card, and send money.
 - REST API: `/api/v1/` · Admin: `/admin/`
 - Telegram Mini App: `/app/`
 
-## 📲 Telegram Mini App
+## 📲 Telegram Mini App (full flow)
 
-The Mini App (`/app/`) authenticates the Telegram user with **real signed
-`initData`** — HMAC-SHA256 validation against the bot token, per Telegram's
-spec (`ubique/accounts/telegram.py`) — and wires a **TON Connect** button so
-users can link a TON wallet for USDT.
+The Mini App (`/app/`) runs the **entire journey inside Telegram**:
+
+1. **Sign-in** with real signed `initData` — HMAC-SHA256 validation against the
+   bot token, per Telegram's spec (`ubique/accounts/telegram.py`).
+2. **KYC** gate (`/api/v1/auth/kyc/start/`).
+3. **Link a TON wallet** via TON Connect; add a card.
+4. **Quote → confirm → result**, all calling the same REST API.
 
 ```bash
 # https PUBLIC_BASE_URL is required (Telegram only opens https Web Apps)
 TELEGRAM_BOT_TOKEN=... PUBLIC_BASE_URL=https://pay.example.com python bot.py
 ```
 
-`/start` opens the Mini App. TON Connect manifest is served at
-`/tonconnect-manifest.json`.
+`/start` opens the Mini App; TON Connect manifest is at `/tonconnect-manifest.json`.
 
-## 🔗 Real providers
+## 🪪 KYC (pluggable)
 
-The on-chain leg ships **real** code: `TonChainSender` performs an actual
-USDT-TON jetton transfer via `tonutils` (6 decimals, ~0.05 TON gas), and
-`TransakOnRampProvider` calls Transak's Orders API. Enable them via the
-`UBIQUE_*` env vars (see `.env.example`); they're credential-gated and the
-mocks stay the default so the project always runs.
+`KYC_PROVIDER` selects the verifier: a **demo** provider (auto-verifies) by
+default, or **Sumsub** (`SumsubKycProvider` — signed access-token + a webhook at
+`/api/v1/auth/kyc/webhook/`). Note: Telegram **Passport** only *collects*
+encrypted documents and still needs a verifier like Sumsub for liveness/AML, so
+Sumsub is the engine here; Passport can be added later as a document front-end.
+
+## 🔗 Real on-chain transfers (TON, testnet-ready)
+
+`TonChainSender` performs an **actual USDT-TON jetton transfer** via `tonutils`
+2.1 (6 decimals, 0.05 TON gas). Spin up and inspect a treasury wallet:
+
+```bash
+python manage.py ton_wallet --create     # generate a TESTNET wallet + mnemonic
+python manage.py ton_wallet              # derive the treasury address
+```
+
+Fund it via [@testgiver_ton_bot](https://t.me/testgiver_ton_bot), set
+`TON_MNEMONIC` + `TON_TESTNET=1`, and transfers run on-chain. `TransakOnRampProvider`
+(card → USDT) and `CheckoutPayoutProvider` (push-to-card) are likewise real and
+credential-gated; the mocks stay the default so the project always runs.
 
 ## 🔌 REST API (`/api/v1/`)
 
