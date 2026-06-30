@@ -13,6 +13,7 @@ re-runs it. Events that exceed ``MAX_WEBHOOK_ATTEMPTS`` are dead-lettered
 import hashlib
 import hmac
 import json
+import time
 
 from django.conf import settings
 from django.db import transaction
@@ -36,10 +37,25 @@ _HANDLERS = {
 }
 
 
-def verify_signature(secret: str, raw_body: bytes, signature: str) -> bool:
+def verify_signature(secret: str, raw_body: bytes, signature: str,
+                     timestamp: str = None, window: int = 300) -> bool:
+    """Verify the HMAC-SHA256 signature. When a timestamp is supplied the signed
+    message is ``"<timestamp>.<body>"`` and the timestamp must be within
+    ``window`` seconds (replay protection); otherwise the raw body is signed
+    (legacy)."""
     if not secret or not signature:
         return False
-    expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    if timestamp:
+        try:
+            ts = int(timestamp)
+        except (TypeError, ValueError):
+            return False
+        if abs(time.time() - ts) > window:
+            return False
+        message = f"{ts}.".encode() + raw_body
+    else:
+        message = raw_body
+    expected = hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
@@ -90,7 +106,9 @@ class _BaseWebhook(APIView):
     def post(self, request):
         secret = settings.UBIQUE.get(self.secret_setting, "")
         signature = request.headers.get("X-Ubique-Signature", "")
-        if not verify_signature(secret, request.body, signature):
+        timestamp = request.headers.get("X-Ubique-Timestamp")
+        window = settings.UBIQUE["WEBHOOK_REPLAY_WINDOW"]
+        if not verify_signature(secret, request.body, signature, timestamp, window):
             return Response({"detail": "Invalid signature."},
                             status=status.HTTP_401_UNAUTHORIZED)
         try:

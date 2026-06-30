@@ -223,6 +223,31 @@ sudo certbot --nginx -d pay.example.com
 `deploy.py` writes the systemd unit, socket and Nginx site, then enables and
 starts everything. Gunicorn is configured in `gunicorn.conf.py`.
 
+Or run the whole stack in containers:
+
+```bash
+cp .env.example .env        # set DJANGO_SECRET_KEY, UBIQUE_FIELD_KEYS, DB_*
+docker compose up --build   # web + Postgres + maintenance worker
+```
+
+## 🛡️ Operations & security
+
+- **API docs** — OpenAPI schema at `/api/v1/schema/`, Swagger UI at `/api/v1/docs/`.
+- **Probes** — `/healthz` (liveness), `/readyz` (DB + cache readiness).
+- **At-rest encryption** — card tokens are Fernet-encrypted (`UBIQUE_FIELD_KEYS`).
+- **Outbound webhooks** — signed event delivery to integrations
+  (`manage.py deliver_webhooks`).
+- **AML/risk** — pluggable risk rules hold or block transfers; officers release
+  via `POST /api/v1/transfers/<id>/release/`.
+- **Ledger** — `manage.py check_ledger` prints the trial balance and asserts
+  integrity; the `/ops/` dashboard shows it live.
+- **Maintenance jobs** (run on a timer): `reconcile_transfers`,
+  `retry_webhooks`, `deliver_webhooks`.
+- **CI** — ruff + bandit + pip-audit + tests on every push.
+
+See **[SECURITY.md](SECURITY.md)** for the full posture and OWASP API Top-10
+mapping.
+
 ## 🧪 Tests
 
 ```bash

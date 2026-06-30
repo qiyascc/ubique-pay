@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import time
 from decimal import Decimal
 
 from django.conf import settings as dj_settings
@@ -70,6 +71,36 @@ class WebhookTests(_Base):
         body = json.dumps({"id": "e2", "type": "payin.settled", "ref": "pref1"}).encode()
         with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
             r = self._post(body, "deadbeef")
+        self.assertEqual(r.status_code, 401)
+        t.refresh_from_db()
+        self.assertEqual(t.status, Status.PAYIN_PENDING)
+
+    def test_timestamped_signature_accepted(self):
+        t = self._pending_payin()
+        body = json.dumps({"id": "ts1", "type": "payin.settled", "ref": "pref1"}).encode()
+        ts = str(int(time.time()))
+        sig = hmac.new(SECRET.encode(), f"{ts}.".encode() + body, hashlib.sha256).hexdigest()
+        with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
+            r = self.client.post(
+                "/api/v1/transfers/webhooks/onramp/", data=body,
+                content_type="application/json",
+                HTTP_X_UBIQUE_SIGNATURE=sig, HTTP_X_UBIQUE_TIMESTAMP=ts,
+            )
+        self.assertEqual(r.status_code, 200)
+        t.refresh_from_db()
+        self.assertEqual(t.status, Status.COMPLETED)
+
+    def test_stale_timestamp_rejected(self):
+        t = self._pending_payin()
+        body = json.dumps({"id": "ts2", "type": "payin.settled", "ref": "pref1"}).encode()
+        ts = str(int(time.time()) - 1000)  # outside the replay window
+        sig = hmac.new(SECRET.encode(), f"{ts}.".encode() + body, hashlib.sha256).hexdigest()
+        with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
+            r = self.client.post(
+                "/api/v1/transfers/webhooks/onramp/", data=body,
+                content_type="application/json",
+                HTTP_X_UBIQUE_SIGNATURE=sig, HTTP_X_UBIQUE_TIMESTAMP=ts,
+            )
         self.assertEqual(r.status_code, 401)
         t.refresh_from_db()
         self.assertEqual(t.status, Status.PAYIN_PENDING)

@@ -282,6 +282,7 @@ UBIQUE = {
     "ONRAMP_WEBHOOK_SECRET": os.environ.get("ONRAMP_WEBHOOK_SECRET", ""),
     "PAYOUT_WEBHOOK_SECRET": os.environ.get("PAYOUT_WEBHOOK_SECRET", ""),
     "MAX_WEBHOOK_ATTEMPTS": int(os.environ.get("UBIQUE_MAX_WEBHOOK_ATTEMPTS", "5")),
+    "WEBHOOK_REPLAY_WINDOW": int(os.environ.get("UBIQUE_WEBHOOK_REPLAY_WINDOW", "300")),
     "OUTBOUND_WEBHOOK_MAX_ATTEMPTS": int(os.environ.get("UBIQUE_OUTBOUND_WEBHOOK_MAX_ATTEMPTS", "6")),
     # End-user notification channels.
     "NOTIFIERS": env_list("UBIQUE_NOTIFIERS", "ubique.common.notify.ConsoleNotifier"),
