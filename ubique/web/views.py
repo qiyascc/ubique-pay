@@ -6,7 +6,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ubique.accounts import otp
@@ -199,6 +199,26 @@ def _resolve_web_recipient(request, cd):
 def transfer_detail(request, pk):
     transfer = get_object_or_404(Transfer, pk=pk, user=request.user)
     return render(request, "web/transfer_detail.html", {"t": transfer})
+
+
+@login_required
+def statement_csv(request):
+    """Download the signed-in user's transfer history as CSV."""
+    import csv
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="ubique-statement.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        "id", "created", "status", "send_amount", "send_currency",
+        "receive_amount", "receive_currency", "recipient_last4", "network",
+    ])
+    for t in request.user.transfers.all():
+        writer.writerow([
+            t.id, t.created_at.isoformat(), t.status, t.send_amount, t.send_currency,
+            t.receive_amount, t.receive_currency, t.recipient_card_last4, t.network,
+        ])
+    return response
 
 
 def miniapp(request):

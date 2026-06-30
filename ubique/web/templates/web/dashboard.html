@@ -38,7 +38,10 @@
 </div>
 
 <div class="panel">
-  <h2>Recent transfers</h2>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin:0">Recent transfers</h2>
+    <a class="btn ghost" href="{% url 'web:statement_csv' %}">Download statement (CSV)</a>
+  </div>
   {% if transfers %}
   <table>
     <tr><th>#</th><th>Amount</th><th>Recipient</th><th>Network</th><th>Status</th></tr>

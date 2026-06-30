@@ -4,6 +4,16 @@ from django.test import TestCase, override_settings
 from ubique.accounts.models import KycStatus, User
 
 
+class StatementTests(TestCase):
+    def test_statement_csv_download(self):
+        user = User.objects.create_user(phone="+994500000501")
+        self.client.force_login(user)
+        r = self.client.get("/statement.csv")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "text/csv")
+        self.assertIn("attachment", r["Content-Disposition"])
+
+
 class ObservabilityTests(TestCase):
     def test_healthz_ok(self):
         r = self.client.get("/healthz")

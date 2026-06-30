@@ -227,6 +227,10 @@ CONTENT_SECURITY_POLICY = os.environ.get(
 KYC_PROVIDER = os.environ.get("KYC_PROVIDER", "ubique.accounts.kyc.DemoKycProvider")
 SUMSUB_WEBHOOK_SECRET = os.environ.get("SUMSUB_WEBHOOK_SECRET", "")
 
+# drf-spectacular can't infer serializers for plain APIViews (auth/webhooks);
+# the schema falls back gracefully, so silence the noisy warning.
+SILENCED_SYSTEM_CHECKS = ["drf_spectacular.W001", "drf_spectacular.W002"]
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Ubique Pay API",
     "DESCRIPTION": "Cross-border card → USDT → card payments.",

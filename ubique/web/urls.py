@@ -15,6 +15,7 @@ urlpatterns = [
     path("kyc/verify/", views.verify_kyc, name="verify_kyc"),
     path("send/", views.send, name="send"),
     path("transfers/<int:pk>/", views.transfer_detail, name="transfer_detail"),
+    path("statement.csv", views.statement_csv, name="statement_csv"),
     path("ops/", views.ops_dashboard, name="ops"),
     # Telegram Mini App
     path("app/", views.miniapp, name="miniapp"),
