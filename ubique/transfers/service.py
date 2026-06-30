@@ -328,3 +328,29 @@ def release_for_review(transfer, officer):
     audit_log("transfer.review_released", actor=officer, target=f"transfer:{transfer.id}",
               score=transfer.risk_score)
     return transfer
+
+
+def open_dispute(transfer, reason, actor=None):
+    from .models import Dispute
+    dispute = Dispute.objects.create(transfer=transfer, reason=reason[:255])
+    audit_log("dispute.opened", actor=actor, target=f"transfer:{transfer.id}",
+              reason=reason[:120])
+    return dispute
+
+
+def resolve_dispute(dispute, outcome, officer, resolution=""):
+    """Close a dispute. A chargeback records the lost funds in the ledger."""
+    from .models import Dispute
+    if dispute.status != Dispute.Status.OPEN:
+        return dispute
+    dispute.status = outcome
+    dispute.resolution = resolution[:255]
+    dispute.resolved_at = timezone.now()
+    dispute.save()
+    if outcome == Dispute.Status.CHARGED_BACK:
+        transfer = dispute.transfer
+        _ledger(transfer, "chargeback_loss", "debit",
+                transfer.receive_amount, transfer.receive_currency)
+    audit_log("dispute.resolved", actor=officer,
+              target=f"transfer:{dispute.transfer_id}", outcome=outcome)
+    return dispute

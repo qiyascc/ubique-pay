@@ -117,6 +117,30 @@ class WebhookEvent(models.Model):
         return not self.processed and self.attempts >= max_attempts
 
 
+class Dispute(models.Model):
+    """A dispute/chargeback raised against a transfer."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        WON = "won", "Won (in our favour)"
+        CHARGED_BACK = "charged_back", "Charged back (funds lost)"
+
+    transfer = models.ForeignKey(
+        Transfer, on_delete=models.PROTECT, related_name="disputes"
+    )
+    reason = models.CharField(max_length=255)
+    status = models.CharField(max_length=14, choices=Status.choices, default=Status.OPEN)
+    resolution = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Dispute #{self.pk} on transfer {self.transfer_id} ({self.status})"
+
+
 class WebhookEndpoint(models.Model):
     """A merchant/integration endpoint that receives signed event callbacks."""
 

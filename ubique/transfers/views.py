@@ -105,6 +105,22 @@ class TransferReleaseView(APIView):
         return Response(TransferSerializer(transfer).data)
 
 
+class TransferDisputeView(APIView):
+    """The sender opens a dispute against their transfer."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        transfer = get_object_or_404(Transfer, pk=pk, user=request.user)
+        reason = (request.data.get("reason") or "").strip()
+        if not reason:
+            return Response({"detail": "A reason is required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        dispute = service.open_dispute(transfer, reason, request.user)
+        return Response({"dispute_id": dispute.id, "status": dispute.status},
+                        status=status.HTTP_201_CREATED)
+
+
 class TransferApproveView(APIView):
     """A treasury signer approves a multisig-gated transfer."""
 

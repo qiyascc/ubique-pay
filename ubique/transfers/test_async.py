@@ -318,6 +318,32 @@ class NotificationTests(_Base):
         self.assertIn("transfer.completed", events)
 
 
+class DisputeTests(_Base):
+    def test_chargeback_records_ledger_loss(self):
+        t = self._create(key="dp1")
+        service.execute(t.id)
+        dispute = service.open_dispute(t, "fraud", self.user)
+        self.assertEqual(dispute.status, "open")
+        service.resolve_dispute(dispute, "charged_back", self.user)
+        dispute.refresh_from_db()
+        self.assertEqual(dispute.status, "charged_back")
+        self.assertTrue(t.ledger_entries.filter(
+            account="chargeback_loss", direction="debit").exists())
+
+    def test_open_dispute_endpoint(self):
+        from rest_framework.test import APIClient
+
+        from ubique.transfers.models import Dispute
+        client = APIClient()
+        client.force_authenticate(self.user)
+        t = self._create(key="dp2")
+        service.execute(t.id)
+        r = client.post(f"/api/v1/transfers/{t.id}/dispute/",
+                        {"reason": "unauthorized charge"}, format="json")
+        self.assertEqual(r.status_code, 201)
+        self.assertTrue(Dispute.objects.filter(transfer=t).exists())
+
+
 class LedgerIntegrityTests(_Base):
     def test_trial_balance_and_usdt_conservation(self):
         from ubique.transfers.ledger import (

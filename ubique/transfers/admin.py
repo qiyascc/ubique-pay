@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    Dispute,
     LedgerEntry,
     OnchainApproval,
     OutboundDelivery,
@@ -8,6 +9,27 @@ from .models import (
     WebhookEndpoint,
     WebhookEvent,
 )
+
+
+@admin.action(description="Resolve as charged back (record loss)")
+def resolve_charged_back(modeladmin, request, queryset):
+    from . import service
+    for dispute in queryset.filter(status="open"):
+        service.resolve_dispute(dispute, "charged_back", request.user)
+
+
+@admin.action(description="Resolve as won")
+def resolve_won(modeladmin, request, queryset):
+    from . import service
+    for dispute in queryset.filter(status="open"):
+        service.resolve_dispute(dispute, "won", request.user)
+
+
+@admin.register(Dispute)
+class DisputeAdmin(admin.ModelAdmin):
+    list_display = ("id", "transfer", "reason", "status", "created_at", "resolved_at")
+    list_filter = ("status",)
+    actions = [resolve_won, resolve_charged_back]
 
 
 @admin.register(WebhookEndpoint)
