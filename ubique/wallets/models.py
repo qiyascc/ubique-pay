@@ -22,6 +22,26 @@ class PaymentCard(models.Model):
         return f"{self.brand} ****{self.last4}"
 
 
+class Recipient(models.Model):
+    """A saved payout destination: a tokenized card belonging to someone the
+    user sends money to. The PAN is never stored — only the token + last 4."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recipients"
+    )
+    name = models.CharField(max_length=128)
+    card_token = models.CharField(max_length=255)
+    brand = models.CharField(max_length=20, blank=True)
+    last4 = models.CharField(max_length=4)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} · {self.brand} ····{self.last4}"
+
+
 class CryptoAccount(models.Model):
     """A user's own crypto destination (e.g. their TON USDT address)."""
 

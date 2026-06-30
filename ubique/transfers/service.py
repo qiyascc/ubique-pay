@@ -88,7 +88,8 @@ def _ledger(transfer, account, direction, amount, currency):
 
 # --- creation -------------------------------------------------------------
 def create_transfer(*, user, source_card, recipient_card_last4, recipient_reference,
-                    send_amount, send_currency, receive_currency, idempotency_key):
+                    send_amount, send_currency, receive_currency, idempotency_key,
+                    recipient_card_token="", recipient_brand=""):
     existing = Transfer.objects.filter(idempotency_key=idempotency_key).first()
     if existing:
         return existing
@@ -105,6 +106,7 @@ def create_transfer(*, user, source_card, recipient_card_last4, recipient_refere
         send_amount=quote.send_amount, send_currency=quote.send_currency,
         receive_currency=quote.receive_currency, source_card=source_card,
         recipient_card_last4=recipient_card_last4,
+        recipient_card_token=recipient_card_token, recipient_brand=recipient_brand,
         recipient_reference=recipient_reference, network=quote.network,
         usdt_transferred=quote.usdt_transferred, receive_amount=quote.receive_amount,
         commission=quote.commission, network_fee_usdt=quote.network_fee_usdt,
@@ -206,7 +208,7 @@ def _do_onchain_and_payout(transfer):
     transfer.advance(Status.PAYOUT_PENDING)
     payout = registry.payout().create_payout(
         amount=transfer.receive_amount, currency=transfer.receive_currency,
-        destination_card=transfer.recipient_card_last4,
+        destination_card=transfer.recipient_card_token or transfer.recipient_card_last4,
         idempotency_key=f"{transfer.idempotency_key}:out",
     )
     transfer.payout_ref = payout.provider_ref

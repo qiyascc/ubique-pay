@@ -2,8 +2,12 @@ import uuid
 
 from rest_framework import generics
 
-from .models import CryptoAccount, PaymentCard
-from .serializers import CryptoAccountSerializer, PaymentCardSerializer
+from .models import CryptoAccount, PaymentCard, Recipient
+from .serializers import (
+    CryptoAccountSerializer,
+    PaymentCardSerializer,
+    RecipientSerializer,
+)
 
 
 class _OwnedMixin:
@@ -36,3 +40,13 @@ class CryptoAccountListCreate(_OwnedMixin, generics.ListCreateAPIView):
 class CryptoAccountDetail(_OwnedMixin, generics.RetrieveDestroyAPIView):
     model = CryptoAccount
     serializer_class = CryptoAccountSerializer
+
+
+class RecipientListCreate(_OwnedMixin, generics.ListCreateAPIView):
+    model = Recipient
+    serializer_class = RecipientSerializer
+
+
+class RecipientDetail(_OwnedMixin, generics.RetrieveDestroyAPIView):
+    model = Recipient
+    serializer_class = RecipientSerializer

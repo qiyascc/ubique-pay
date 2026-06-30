@@ -59,11 +59,11 @@ class WebFlowTests(TestCase):
         card = user.cards.first()
         self.assertIsNotNone(card)
 
-        # 4) preview a quote
+        # 4) preview a quote (recipient = a fresh, tokenized card number)
         base = {
             "source_card": card.id, "send_amount": "200", "send_currency": "USD",
-            "receive_currency": "AZN", "recipient_card_last4": "9999",
-            "recipient_reference": "John",
+            "receive_currency": "AZN", "saved_recipient": "",
+            "recipient_card_number": "4111111111111111", "recipient_name": "John",
         }
         r = self.client.post("/send/", {**base, "action": "preview"})
         self.assertContains(r, "Recipient gets")
@@ -73,3 +73,8 @@ class WebFlowTests(TestCase):
         self.assertEqual(r.status_code, 302)
         detail = self.client.get(r["Location"])
         self.assertContains(detail, "Completed")
+        # The PAN was tokenized to last 4 + brand.
+        t = user.transfers.first()
+        self.assertEqual(t.recipient_card_last4, "1111")
+        self.assertEqual(t.recipient_brand, "Visa")
+        self.assertTrue(t.recipient_card_token.startswith("rct_"))

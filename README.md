@@ -134,6 +134,15 @@ credential-gated; the mocks stay the default so the project always runs.
 | `POST quotes/` | Fee breakdown + cheapest-network routing |
 | `GET/POST transfers/` · `GET transfers/{id}/` | Create/execute & inspect transfers (with ledger) |
 
+## 💳 Recipients & payout
+
+The recipient leg is complete end to end. Users save **recipients** (a name + a
+**tokenized** card — the PAN is validated by Luhn, the brand + last 4 derived,
+and only a token stored) or enter a fresh card at send time, in both the web app
+(`/recipients/`) and the Telegram Mini App. The payout adapter
+(`CheckoutPayoutProvider` / Visa Direct) is handed the recipient **token**, never
+a raw PAN, and the result is confirmed by the `payout` webhook.
+
 ## 🌍 Corridors & treasury
 
 Money only moves over **explicitly enabled corridors**. A `Corridor`

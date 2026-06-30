@@ -21,6 +21,8 @@ class Transfer(models.Model):
         "wallets.PaymentCard", on_delete=models.PROTECT, related_name="transfers"
     )
     recipient_card_last4 = models.CharField(max_length=4)
+    recipient_card_token = models.CharField(max_length=255, blank=True)
+    recipient_brand = models.CharField(max_length=20, blank=True)
     recipient_reference = models.CharField(max_length=128, blank=True)
 
     # Frozen quote snapshot.

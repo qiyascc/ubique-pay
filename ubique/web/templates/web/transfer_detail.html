@@ -11,7 +11,7 @@
   {% if t.failure_reason %}<p class="errornote">{{ t.failure_reason }}</p>{% endif %}
   <div class="kpi" style="margin-top:8px">
     <b>{{ t.receive_amount }} {{ t.receive_currency }}</b>
-    <span class="muted">to ····{{ t.recipient_card_last4 }} {% if t.recipient_reference %}({{ t.recipient_reference }}){% endif %}</span>
+    <span class="muted">to {{ t.recipient_brand }} ····{{ t.recipient_card_last4 }} {% if t.recipient_reference %}({{ t.recipient_reference }}){% endif %}</span>
   </div>
   <p class="muted">{{ t.send_amount }} {{ t.send_currency }} · {{ t.usdt_transferred }} USDT over {{ t.network }}
   {% if t.chain_tx %}· tx {{ t.chain_tx }}{% endif %}</p>

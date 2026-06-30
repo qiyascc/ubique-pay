@@ -110,11 +110,12 @@
   // 5) Confirm → create transfer
   $("confirm-btn").onclick = async () => {
     if (!cards.length) { setStatus("Add a card first.", false); return; }
-    if (!$("r-last4").value) { setStatus("Enter recipient card.", false); return; }
+    if (!$("r-card").value) { setStatus("Enter recipient card number.", false); return; }
     $("confirm-btn").disabled = true;
     const r = await api("POST", "/transfers/", {
       source_card_id: cards[0].id,
-      recipient_card_last4: $("r-last4").value,
+      recipient_card_number: $("r-card").value,
+      recipient_name: $("r-name").value,
       send_amount: pendingQuote.send_amount,
       send_currency: pendingQuote.send_currency,
       receive_currency: pendingQuote.receive_currency,

@@ -1,0 +1,31 @@
+{% extends "web/base.html" %}
+{% block title %}Recipients · Ubique Pay{% endblock %}
+{% block content %}
+<h1>Recipients</h1>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Saved recipients</h2>
+    {% for r in recipients %}
+      <div style="padding:8px 0;border-bottom:1px solid var(--line)">
+        <b>{{ r.name }}</b><br>
+        <span class="muted">{{ r.brand }} ····{{ r.last4 }}</span>
+      </div>
+    {% empty %}<p class="muted">No saved recipients yet.</p>{% endfor %}
+  </div>
+  <div class="panel">
+    <h2>Add a recipient</h2>
+    <form method="post">
+      {% csrf_token %}
+      {% for f in form %}
+        <label>{{ f.label }}</label>{{ f }}
+        {% for e in f.errors %}<div class="errornote">{{ e }}</div>{% endfor %}
+      {% endfor %}
+      <p class="muted" style="font-size:.78rem;margin-top:8px">The card number is
+      tokenized — only the brand and last 4 are stored.</p>
+      <button class="btn" type="submit" style="margin-top:6px">Save recipient</button>
+    </form>
+  </div>
+</div>
+<a class="btn ghost" href="{% url 'web:send' %}">Send money</a>
+{% endblock %}

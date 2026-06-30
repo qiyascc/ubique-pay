@@ -17,9 +17,10 @@ from ubique.accounts.models import KycStatus, User
 from ubique.quotes.engine import build_quote
 from ubique.transfers import service
 from ubique.transfers.models import Transfer
-from ubique.wallets.models import CryptoAccount, PaymentCard
+from ubique.wallets.cards import tokenize_card
+from ubique.wallets.models import CryptoAccount, PaymentCard, Recipient
 
-from .forms import CardForm, CodeForm, PhoneForm, SendForm
+from .forms import CardForm, CodeForm, PhoneForm, RecipientForm, SendForm
 
 _AUTH_BACKEND = "django.contrib.auth.backends.ModelBackend"
 
@@ -108,14 +109,37 @@ def verify_kyc(request):
 
 
 @login_required
+def recipients(request):
+    form = RecipientForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            token, last4, brand = tokenize_card(form.cleaned_data["card_number"])
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return render(request, "web/recipients.html",
+                          {"form": form, "recipients": request.user.recipients.all()})
+        Recipient.objects.create(
+            user=request.user, name=form.cleaned_data["name"],
+            card_token=token, last4=last4, brand=brand,
+        )
+        messages.success(request, "Recipient saved.")
+        return redirect("web:recipients")
+    return render(request, "web/recipients.html",
+                  {"form": form, "recipients": request.user.recipients.all()})
+
+
+@login_required
 def send(request):
     cards = request.user.cards.all()
     if not cards:
         messages.error(request, "Add a card before sending money.")
         return redirect("web:add_card")
 
-    choices = [(c.id, f"{c.brand} ****{c.last4}") for c in cards]
-    form = SendForm(request.POST or None, card_choices=choices)
+    card_choices = [(c.id, f"{c.brand} ****{c.last4}") for c in cards]
+    recipient_choices = [(r.id, f"{r.name} · {r.brand} ····{r.last4}")
+                         for r in request.user.recipients.all()]
+    form = SendForm(request.POST or None, card_choices=card_choices,
+                    recipient_choices=recipient_choices)
     quote = None
 
     if request.method == "POST" and form.is_valid():
@@ -134,15 +158,16 @@ def send(request):
         if action == "confirm":
             card = get_object_or_404(PaymentCard, id=cd["source_card"], user=request.user)
             try:
+                token, last4, brand, name = _resolve_web_recipient(request, cd)
                 transfer = service.create_transfer(
                     user=request.user, source_card=card,
-                    recipient_card_last4=cd["recipient_card_last4"],
-                    recipient_reference=cd.get("recipient_reference", ""),
+                    recipient_card_last4=last4, recipient_card_token=token,
+                    recipient_brand=brand, recipient_reference=name,
                     send_amount=cd["send_amount"], send_currency=cd["send_currency"],
                     receive_currency=cd["receive_currency"],
                     idempotency_key=uuid.uuid4().hex,
                 )
-            except (service.LimitExceeded, service.ComplianceReject) as exc:
+            except (service.LimitExceeded, service.ComplianceReject, ValueError) as exc:
                 messages.error(request, str(exc))
                 return render(request, "web/send.html", {"form": form, "quote": quote})
             try:
@@ -155,6 +180,14 @@ def send(request):
             return redirect("web:transfer_detail", pk=transfer.id)
 
     return render(request, "web/send.html", {"form": form, "quote": quote})
+
+
+def _resolve_web_recipient(request, cd):
+    if cd.get("saved_recipient"):
+        r = get_object_or_404(Recipient, id=cd["saved_recipient"], user=request.user)
+        return r.card_token, r.last4, r.brand, cd.get("recipient_name") or r.name
+    token, last4, brand = tokenize_card(cd["recipient_card_number"])
+    return token, last4, brand, cd.get("recipient_name", "")
 
 
 @login_required

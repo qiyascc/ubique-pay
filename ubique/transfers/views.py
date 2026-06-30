@@ -18,6 +18,22 @@ class TransferListCreate(generics.ListCreateAPIView):
     def get_queryset(self):
         return Transfer.objects.filter(user=self.request.user)
 
+    def _resolve_recipient(self, request, v):
+        """Return (token, last4, brand, name) from a saved recipient, a fresh
+        card number, or a legacy last-4."""
+        from ubique.wallets.cards import tokenize_card
+        from ubique.wallets.models import Recipient
+
+        if v.get("recipient_id"):
+            r = Recipient.objects.filter(id=v["recipient_id"], user=request.user).first()
+            if not r:
+                raise ValueError("Recipient not found.")
+            return r.card_token, r.last4, r.brand, v.get("recipient_name") or r.name
+        if v.get("recipient_card_number"):
+            token, last4, brand = tokenize_card(v["recipient_card_number"])
+            return token, last4, brand, v.get("recipient_name", "")
+        return "", v.get("recipient_card_last4", ""), "", v.get("recipient_name") or v.get("recipient_reference", "")
+
     def create(self, request, *args, **kwargs):
         payload = CreateTransferSerializer(data=request.data, context={"request": request})
         payload.is_valid(raise_exception=True)
@@ -25,11 +41,14 @@ class TransferListCreate(generics.ListCreateAPIView):
         card = PaymentCard.objects.get(id=v["source_card_id"], user=request.user)
 
         try:
+            token, last4, brand, name = self._resolve_recipient(request, v)
             transfer = service.create_transfer(
                 user=request.user,
                 source_card=card,
-                recipient_card_last4=v["recipient_card_last4"],
-                recipient_reference=v.get("recipient_reference", ""),
+                recipient_card_last4=last4,
+                recipient_card_token=token,
+                recipient_brand=brand,
+                recipient_reference=name,
                 send_amount=v["send_amount"],
                 send_currency=v["send_currency"].upper(),
                 receive_currency=v["receive_currency"].upper(),

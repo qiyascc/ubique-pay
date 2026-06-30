@@ -11,9 +11,13 @@
       <div><label>From</label>{{ form.send_currency }}</div>
       <div><label>To</label>{{ form.receive_currency }}</div>
     </div>
-    <label>{{ form.recipient_card_last4.label }}</label>{{ form.recipient_card_last4 }}
-    <label>{{ form.recipient_reference.label }}</label>{{ form.recipient_reference }}
+    <label>{{ form.saved_recipient.label }}</label>{{ form.saved_recipient }}
+    <label>{{ form.recipient_card_number.label }}</label>{{ form.recipient_card_number }}
+    <label>{{ form.recipient_name.label }}</label>{{ form.recipient_name }}
+    <p class="muted" style="font-size:.78rem">New cards are tokenized — only brand + last 4 are stored.
+      <a href="{% url 'web:recipients' %}">Manage recipients</a></p>
     {% for f in form %}{% for e in f.errors %}<div class="errornote">{{ f.label }}: {{ e }}</div>{% endfor %}{% endfor %}
+    {% for e in form.non_field_errors %}<div class="errornote">{{ e }}</div>{% endfor %}
 
     <div style="margin-top:16px">
       <button class="btn ghost" type="submit" name="action" value="preview">Get quote</button>

@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import CryptoAccount, PaymentCard
+from .models import CryptoAccount, PaymentCard, Recipient
+
+
+@admin.register(Recipient)
+class RecipientAdmin(admin.ModelAdmin):
+    list_display = ("user", "name", "brand", "last4", "created_at")
+    search_fields = ("user__phone", "name", "last4")
 
 
 @admin.register(PaymentCard)
