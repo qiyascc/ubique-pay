@@ -189,7 +189,13 @@ UBIQUE = {
     "FX_SPREAD": float(os.environ.get("UBIQUE_FX_SPREAD", "0.005")),
     "MIN_SEND": float(os.environ.get("UBIQUE_MIN_SEND", "20")),
     "MAX_SEND": float(os.environ.get("UBIQUE_MAX_SEND", "10000")),
+    "MAX_DAILY": float(os.environ.get("UBIQUE_MAX_DAILY", "20000")),
+    # Comma-separated phones / card last4 to block (sanctions/compliance demo).
+    "DENYLIST": env_list("UBIQUE_DENYLIST"),
     # OTP anti-abuse
     "OTP_MAX_PER_HOUR": int(os.environ.get("UBIQUE_OTP_MAX_PER_HOUR", "5")),
     "OTP_MAX_ATTEMPTS": int(os.environ.get("UBIQUE_OTP_MAX_ATTEMPTS", "5")),
+    # Webhook signing secrets (per provider).
+    "ONRAMP_WEBHOOK_SECRET": os.environ.get("ONRAMP_WEBHOOK_SECRET", ""),
+    "PAYOUT_WEBHOOK_SECRET": os.environ.get("PAYOUT_WEBHOOK_SECRET", ""),
 }

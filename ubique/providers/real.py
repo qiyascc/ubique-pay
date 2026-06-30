@@ -149,3 +149,59 @@ class VisaDirectPayoutProvider(PayoutProvider):
 
     def get_payout(self, provider_ref):
         raise NotImplementedError
+
+
+class CheckoutPayoutProvider(PayoutProvider):
+    """Push-to-card payout via Checkout.com (an aggregator over Visa/Mastercard).
+
+    Env: CHECKOUT_SECRET_KEY, CHECKOUT_ENV (sandbox|production),
+         CHECKOUT_SOURCE_ID (your funding currency-account id).
+    ``destination_card`` is the recipient card token from Checkout's card vault
+    (never a raw PAN).
+    """
+
+    def __init__(self):
+        self.secret = os.environ.get("CHECKOUT_SECRET_KEY", "")
+        self.source_id = os.environ.get("CHECKOUT_SOURCE_ID", "")
+        env = os.environ.get("CHECKOUT_ENV", "sandbox").lower()
+        self.base = (
+            "https://api.checkout.com" if env == "production"
+            else "https://api.sandbox.checkout.com"
+        )
+        if not self.secret or not self.source_id:
+            raise ImproperlyConfigured(
+                "CheckoutPayoutProvider needs CHECKOUT_SECRET_KEY and "
+                "CHECKOUT_SOURCE_ID."
+            )
+
+    def create_payout(self, *, amount, currency, destination_card, idempotency_key):
+        import json
+        import urllib.request
+
+        payload = json.dumps({
+            "source": {"type": "currency_account", "id": self.source_id},
+            "destination": {"type": "id", "id": destination_card},
+            "amount": int(Decimal(str(amount)) * 100),  # minor units
+            "currency": currency,
+            "reference": idempotency_key,
+            "instruction": {"purpose": "remittance"},
+        }).encode()
+        req = urllib.request.Request(
+            f"{self.base}/payments",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.secret}",
+                "Cko-Idempotency-Key": idempotency_key,
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode())
+        return PayoutResult(
+            provider_ref=str(data.get("id", idempotency_key)),
+            status="pending",  # confirmed later by webhook
+        )
+
+    def get_payout(self, provider_ref):
+        raise NotImplementedError("Poll Checkout.com payment status or use webhooks.")

@@ -106,6 +106,25 @@ mocks stay the default so the project always runs.
 | `POST quotes/` | Fee breakdown + cheapest-network routing |
 | `GET/POST transfers/` · `GET transfers/{id}/` | Create/execute & inspect transfers (with ledger) |
 
+## 🏦 Payment-system internals
+
+Built like a real rail, not a demo:
+
+- **Asynchronous, webhook-driven** — providers confirm pay-ins/payouts via
+  signed webhooks (`/api/v1/transfers/webhooks/{onramp,payout}/`). The same
+  state-machine steps run inline for the synchronous mocks and via webhooks for
+  real providers.
+- **Webhook security** — every event is verified (`X-Ubique-Signature` =
+  HMAC-SHA256 of the raw body) and **deduped** on `(provider, event id)`, so
+  retries never double-process or double-spend.
+- **Reconciliation** — `python manage.py reconcile_transfers` polls providers
+  and advances/fails any transfer stuck pending (a safety net for missed
+  webhooks). Run it on a timer.
+- **Risk & compliance** — KYC gate, per-user 24h **velocity limit**, and a
+  sanctions **denylist** screen before any money moves.
+- **Idempotency** — transfer creation, execution and every webhook are
+  idempotent; the append-only ledger is the source of truth.
+
 ## 🔐 Security
 
 Built secure-by-default — the most important part of a payments system:

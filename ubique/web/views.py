@@ -128,14 +128,18 @@ def send(request):
 
         if action == "confirm":
             card = get_object_or_404(PaymentCard, id=cd["source_card"], user=request.user)
-            transfer = service.create_transfer(
-                user=request.user, source_card=card,
-                recipient_card_last4=cd["recipient_card_last4"],
-                recipient_reference=cd.get("recipient_reference", ""),
-                send_amount=cd["send_amount"], send_currency=cd["send_currency"],
-                receive_currency=cd["receive_currency"],
-                idempotency_key=uuid.uuid4().hex,
-            )
+            try:
+                transfer = service.create_transfer(
+                    user=request.user, source_card=card,
+                    recipient_card_last4=cd["recipient_card_last4"],
+                    recipient_reference=cd.get("recipient_reference", ""),
+                    send_amount=cd["send_amount"], send_currency=cd["send_currency"],
+                    receive_currency=cd["receive_currency"],
+                    idempotency_key=uuid.uuid4().hex,
+                )
+            except (service.LimitExceeded, service.ComplianceReject) as exc:
+                messages.error(request, str(exc))
+                return render(request, "web/send.html", {"form": form, "quote": quote})
             try:
                 service.execute(transfer.id)
             except service.KycRequired as exc:

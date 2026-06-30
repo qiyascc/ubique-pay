@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LedgerEntry, Transfer
+from .models import LedgerEntry, Transfer, WebhookEvent
 
 
 class LedgerInline(admin.TabularInline):
@@ -23,3 +23,11 @@ class TransferAdmin(admin.ModelAdmin):
 class LedgerEntryAdmin(admin.ModelAdmin):
     list_display = ("transfer", "account", "direction", "amount", "currency", "created_at")
     list_filter = ("direction", "account", "currency")
+
+
+@admin.register(WebhookEvent)
+class WebhookEventAdmin(admin.ModelAdmin):
+    list_display = ("provider", "event_type", "external_id", "processed", "received_at")
+    list_filter = ("provider", "processed")
+    search_fields = ("external_id",)
+    readonly_fields = ("provider", "external_id", "event_type", "payload", "received_at")

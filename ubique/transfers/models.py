@@ -76,3 +76,26 @@ class LedgerEntry(models.Model):
 
     def __str__(self):
         return f"{self.direction} {self.amount} {self.currency} @ {self.account}"
+
+
+class WebhookEvent(models.Model):
+    """Raw inbound provider event — stored for idempotent processing & audit.
+
+    A real payment rail is asynchronous: providers confirm pay-ins and payouts
+    via webhooks, which may be retried. We dedupe on (provider, external_id) so
+    a replayed event is never processed twice.
+    """
+
+    provider = models.CharField(max_length=32)
+    external_id = models.CharField(max_length=128)
+    event_type = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    processed = models.BooleanField(default=False)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("provider", "external_id")
+        ordering = ["-received_at"]
+
+    def __str__(self):
+        return f"{self.provider}:{self.event_type}:{self.external_id}"

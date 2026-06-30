@@ -31,6 +31,8 @@ class TransferListCreate(generics.ListCreateAPIView):
                 receive_currency=v["receive_currency"].upper(),
                 idempotency_key=v["idempotency_key"],
             )
+        except (service.LimitExceeded, service.ComplianceReject) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
