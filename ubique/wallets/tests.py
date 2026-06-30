@@ -47,3 +47,22 @@ class RecipientApiTests(TestCase):
             {"name": "Bad", "card_number": "1234"}, format="json",
         )
         self.assertEqual(r.status_code, 400)
+
+
+class FieldEncryptionTests(TestCase):
+    def test_card_token_is_encrypted_at_rest(self):
+        from django.db import connection
+
+        from ubique.wallets.models import PaymentCard
+        user = User.objects.create_user(phone="+994500000401")
+        card = PaymentCard.objects.create(
+            user=user, provider_token="tok_super_secret", brand="Visa", last4="1111",
+        )
+        with connection.cursor() as cur:
+            cur.execute("SELECT provider_token FROM wallets_paymentcard WHERE id=%s", [card.id])
+            raw = cur.fetchone()[0]
+        # Stored ciphertext does not contain the plaintext token…
+        self.assertNotIn("tok_super_secret", raw)
+        self.assertTrue(raw.startswith("gAAAAA"))  # Fernet token marker
+        # …but the ORM decrypts transparently.
+        self.assertEqual(PaymentCard.objects.get(id=card.id).provider_token, "tok_super_secret")

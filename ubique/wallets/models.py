@@ -1,15 +1,17 @@
 from django.conf import settings
 from django.db import models
 
+from ubique.common.encryption import EncryptedCharField
+
 
 class PaymentCard(models.Model):
     """A tokenized card. The PAN never touches our database (PCI): we keep only
-    the provider's token and the last four digits for display."""
+    the provider's token (encrypted at rest) and the last four for display."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cards"
     )
-    provider_token = models.CharField(max_length=255)
+    provider_token = EncryptedCharField(max_length=255)
     brand = models.CharField(max_length=20, blank=True)
     last4 = models.CharField(max_length=4)
     is_default = models.BooleanField(default=False)
@@ -30,7 +32,7 @@ class Recipient(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recipients"
     )
     name = models.CharField(max_length=128)
-    card_token = models.CharField(max_length=255)
+    card_token = EncryptedCharField(max_length=255)
     brand = models.CharField(max_length=20, blank=True)
     last4 = models.CharField(max_length=4)
     created_at = models.DateTimeField(auto_now_add=True)

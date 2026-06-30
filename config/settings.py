@@ -156,6 +156,11 @@ STORAGES = {
 CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = False
 
+# Field-level encryption keys (Fernet). First is primary; extra keys allow
+# rotation. If unset, a key is derived from SECRET_KEY (fine for dev).
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+UBIQUE_FIELD_KEYS = env_list("UBIQUE_FIELD_KEYS")
+
 # Structured logging to stdout with a request-id on every line.
 LOGGING = {
     "version": 1,

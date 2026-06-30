@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from ubique.common.encryption import EncryptedCharField
+
 from .state import InvalidTransition, Status, can_transition
 
 
@@ -21,7 +23,7 @@ class Transfer(models.Model):
         "wallets.PaymentCard", on_delete=models.PROTECT, related_name="transfers"
     )
     recipient_card_last4 = models.CharField(max_length=4)
-    recipient_card_token = models.CharField(max_length=255, blank=True)
+    recipient_card_token = EncryptedCharField(max_length=255, blank=True)
     recipient_brand = models.CharField(max_length=20, blank=True)
     recipient_reference = models.CharField(max_length=128, blank=True)
 
