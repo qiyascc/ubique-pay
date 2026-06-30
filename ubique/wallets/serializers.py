@@ -17,7 +17,7 @@ class RecipientSerializer(serializers.ModelSerializer):
         try:
             token, last4, brand = tokenize_card(number)
         except ValueError as exc:
-            raise serializers.ValidationError({"card_number": str(exc)})
+            raise serializers.ValidationError({"card_number": str(exc)}) from exc
         return Recipient.objects.create(
             card_token=token, last4=last4, brand=brand, **validated_data
         )

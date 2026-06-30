@@ -1,0 +1,19 @@
+# Tooling configuration (lint + security). Not a build manifest — the project
+# is run from requirements.txt / manage.py.
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["*/migrations/*", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = ["E501"]  # long lines are fine; we keep them readable
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests*.py" = ["S101"]
+"config/settings.py" = ["F403", "F405"]
+
+[tool.bandit]
+exclude_dirs = ["migrations", "tests", ".venv"]
+skips = ["B101"]  # asserts in tests

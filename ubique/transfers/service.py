@@ -19,6 +19,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from ubique.audit.log import log as audit_log
 from ubique.providers import registry
 from ubique.quotes.engine import build_quote
 
@@ -135,7 +136,7 @@ def execute(transfer_id):
     except (KycRequired, LimitExceeded, ComplianceReject, LiquidityError):
         raise
     except Exception as exc:  # noqa: BLE001
-        fail(transfer, str(exc))
+        fail_and_refund(transfer, str(exc))
         raise
     return transfer
 
@@ -190,6 +191,8 @@ def approve_onchain(transfer, signer):
         return transfer
     approval = transfer.onchain_approval
     approval.approvers.add(signer)
+    audit_log("approval.granted", actor=signer, target=f"transfer:{transfer.id}",
+              approvals=approval.approval_count(), threshold=approval.threshold)
     if approval.is_satisfied():
         _do_onchain_and_payout(transfer)
     return transfer
@@ -224,6 +227,8 @@ def complete_payout(transfer):
     transfer.advance(Status.COMPLETED)
     _ledger(transfer, "payout_pool", "debit", transfer.usdt_transferred, "USDT")
     _ledger(transfer, "recipient_card", "credit", transfer.receive_amount, transfer.receive_currency)
+    audit_log("transfer.completed", target=f"transfer:{transfer.id}",
+              amount=str(transfer.receive_amount), currency=transfer.receive_currency)
     if settings.UBIQUE.get("LIQUIDITY_ENFORCED"):
         from django.db.models import F
 
@@ -236,3 +241,40 @@ def complete_payout(transfer):
 def fail(transfer, reason):
     if can_transition(transfer.status, Status.FAILED):
         transfer.advance(Status.FAILED, failure_reason=reason[:255])
+        audit_log("transfer.failed", target=f"transfer:{transfer.id}", reason=reason[:255])
+
+
+def refund(transfer):
+    """Reverse a failed transfer back to the sender. Idempotent.
+
+    If the pay-in had settled (the sender was actually charged) we ask the
+    on-ramp provider to refund the card and write the reversing ledger entries;
+    otherwise nothing was taken and we simply close the transfer.
+    """
+    if transfer.status != Status.FAILED:
+        return transfer
+
+    charged = transfer.ledger_entries.filter(
+        account="treasury_usdt", direction="credit"
+    ).exists()
+    if charged:
+        result = registry.onramp().refund_payin(
+            provider_ref=transfer.payin_ref, amount=transfer.send_amount,
+            currency=transfer.send_currency,
+            idempotency_key=f"{transfer.idempotency_key}:refund",
+        )
+        transfer.advance(Status.REFUNDED, refund_ref=result.provider_ref)
+        _ledger(transfer, "sender_refund", "credit", transfer.send_amount, transfer.send_currency)
+        # We don't keep the commission on a reversed transfer.
+        _ledger(transfer, "ubique_revenue", "debit", transfer.commission, transfer.send_currency)
+    else:
+        transfer.advance(Status.REFUNDED)
+    audit_log("transfer.refunded", target=f"transfer:{transfer.id}",
+              amount=str(transfer.send_amount), currency=transfer.send_currency)
+    return transfer
+
+
+def fail_and_refund(transfer, reason):
+    """Mark failed and immediately reverse any settled funds to the sender."""
+    fail(transfer, reason)
+    refund(transfer)

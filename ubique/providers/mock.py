@@ -17,6 +17,7 @@ from .base import (
     PayinResult,
     PayoutProvider,
     PayoutResult,
+    RefundResult,
 )
 
 
@@ -34,6 +35,9 @@ class MockOnRampProvider(OnRampProvider):
 
     def get_payin(self, provider_ref):
         return PayinResult(provider_ref=provider_ref, status="settled", usdt_amount=Decimal("0"))
+
+    def refund_payin(self, *, provider_ref, amount, currency, idempotency_key):
+        return RefundResult(provider_ref=_ref("refund"), status="refunded")
 
 
 class MockChainSender(ChainSender):

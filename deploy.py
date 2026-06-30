@@ -51,8 +51,6 @@ def main():
 
     app = os.environ.get("DEPLOY_APP_NAME", "ubique-pay")
     domain = os.environ.get("DEPLOY_DOMAIN", "")
-    workers = os.environ.get("GUNICORN_WORKERS", "3")
-    bind = os.environ.get("GUNICORN_BIND", f"unix:/run/{app}.sock")
     user = os.environ.get("DEPLOY_USER", os.environ.get("SUDO_USER", "www-data"))
     gunicorn = VENV / "bin" / "gunicorn"
 

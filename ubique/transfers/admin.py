@@ -16,6 +16,16 @@ class LedgerInline(admin.TabularInline):
     can_delete = False
 
 
+@admin.action(description="Refund selected failed transfers")
+def refund_failed(modeladmin, request, queryset):
+    from . import service
+    n = 0
+    for transfer in queryset.filter(status="failed"):
+        service.refund(transfer)
+        n += 1
+    modeladmin.message_user(request, f"Refunded {n} transfer(s).")
+
+
 @admin.register(Transfer)
 class TransferAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "status", "send_amount", "send_currency",
@@ -23,6 +33,7 @@ class TransferAdmin(admin.ModelAdmin):
     list_filter = ("status", "network", "send_currency")
     search_fields = ("user__phone", "idempotency_key", "payin_ref", "chain_tx")
     inlines = [LedgerInline]
+    actions = [refund_failed]
 
 
 @admin.register(LedgerEntry)

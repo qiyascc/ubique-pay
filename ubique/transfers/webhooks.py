@@ -63,7 +63,7 @@ def process_event(event: WebhookEvent):
     elif action == "complete":
         service.complete_payout(transfer)
     elif action == "fail":
-        service.fail(transfer, "Provider reported failure.")
+        service.fail_and_refund(transfer, "Provider reported failure.")
 
 
 def _run(event):

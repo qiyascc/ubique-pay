@@ -1,13 +1,13 @@
+import hashlib
+import hmac
+import json
+
 from django.conf import settings
 from rest_framework import serializers, status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-import hashlib
-import hmac
-import json
 
 from . import otp
 from .kyc import get_provider
@@ -146,4 +146,6 @@ class SumsubWebhookView(APIView):
             elif answer == "RED":
                 user.kyc_status = KycStatus.REJECTED
             user.save(update_fields=["kyc_status"])
+            from ubique.audit.log import log
+            log("kyc.reviewed", target=f"user:{user.id}", result=answer)
         return Response({"detail": "ok"})

@@ -64,7 +64,8 @@ class TransakOnRampProvider(OnRampProvider):
             headers={"Content-Type": "application/json", "api-secret": self.api_key},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        # URL is built from the hardcoded https Transak base; safe scheme.
+        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310
             data = json.loads(resp.read().decode())
         order = data.get("response", data)
         return PayinResult(
@@ -208,7 +209,8 @@ class CheckoutPayoutProvider(PayoutProvider):
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        # URL is built from the hardcoded https Checkout.com base; safe scheme.
+        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310
             data = json.loads(resp.read().decode())
         return PayoutResult(
             provider_ref=str(data.get("id", idempotency_key)),

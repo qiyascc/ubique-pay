@@ -9,16 +9,15 @@ from django.db.models import Count, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from ubique.corridors.models import Corridor, TreasuryBalance
-from ubique.transfers.state import Status
-
 from ubique.accounts import otp
 from ubique.accounts.models import KycStatus, User
+from ubique.corridors.models import Corridor, TreasuryBalance
 from ubique.quotes.engine import build_quote
 from ubique.transfers import service
 from ubique.transfers.models import Transfer
+from ubique.transfers.state import Status
 from ubique.wallets.cards import tokenize_card
-from ubique.wallets.models import CryptoAccount, PaymentCard, Recipient
+from ubique.wallets.models import PaymentCard, Recipient
 
 from .forms import CardForm, CodeForm, PhoneForm, RecipientForm, SendForm
 
@@ -64,6 +63,10 @@ def verify_view(request):
             user, _ = User.objects.get_or_create(phone=phone)
             login(request, user, backend=_AUTH_BACKEND)
             request.session.pop("otp_phone", None)
+            from ubique.audit.log import log
+            forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+            ip = forwarded.split(",")[0].strip() if forwarded else request.META.get("REMOTE_ADDR")
+            log("login", actor=user, ip=ip)
             return redirect("web:dashboard")
     return render(request, "web/verify.html", {"form": form, "phone": phone})
 

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "ubique.corridors",
     "ubique.quotes",
     "ubique.transfers",
+    "ubique.audit",
     "ubique.web",
 ]
 

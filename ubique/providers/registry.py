@@ -1,12 +1,12 @@
 """Loads the configured provider adapters from settings."""
 
-from functools import lru_cache
+from functools import cache
 
 from django.conf import settings
 from django.utils.module_loading import import_string
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load(key):
     return import_string(settings.UBIQUE[key])()
 

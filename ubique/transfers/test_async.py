@@ -75,7 +75,7 @@ class WebhookTests(_Base):
         self.assertEqual(t.status, Status.PAYIN_PENDING)
 
     def test_duplicate_event_does_not_double_process(self):
-        t = self._pending_payin()
+        self._pending_payin()
         body = json.dumps({"id": "dup", "type": "payin.settled", "ref": "pref1"}).encode()
         sig = sign(SECRET, body)
         with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
@@ -93,9 +93,9 @@ class RiskTests(_Base):
                 self._create(key="b", amount="80")
 
     def test_compliance_denylist(self):
-        with override_settings(UBIQUE=ubique(DENYLIST=["9999"])):
-            with self.assertRaises(service.ComplianceReject):
-                self._create(key="c", last4="9999")
+        with override_settings(UBIQUE=ubique(DENYLIST=["9999"])), \
+                self.assertRaises(service.ComplianceReject):
+            self._create(key="c", last4="9999")
 
 
 class ReconcileTests(_Base):
@@ -150,7 +150,8 @@ class WebhookRetryTests(_Base):
         t = self._pending_payin(key="late", ref="late-ref")
         with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
             call_command("retry_webhooks")
-        ev.refresh_from_db(); t.refresh_from_db()
+        ev.refresh_from_db()
+        t.refresh_from_db()
         self.assertTrue(ev.processed)
         self.assertEqual(t.status, Status.COMPLETED)
 
@@ -206,6 +207,68 @@ class DynamicPricingTests(_Base):
         self.assertEqual(self._quote("600").commission, Decimal("3.00"))   # 600 * 0.5% (tier)
 
 
+class RefundTests(_Base):
+    def _settled_payout_pending(self, key="rf"):
+        """Drive a transfer to PAYOUT_PENDING with pay-in settled."""
+        t = self._create(key=key)
+        t.advance(Status.PAYIN_PENDING)
+        t.advance(Status.PAYIN_SETTLED)
+        from ubique.transfers.service import _ledger
+        _ledger(t, "treasury_usdt", "credit", t.usdt_transferred, "USDT")
+        _ledger(t, "ubique_revenue", "credit", t.commission, t.send_currency)
+        t.advance(Status.ONCHAIN_SENT)
+        t.advance(Status.PAYOUT_PENDING)
+        return t
+
+    def test_payout_failure_refunds_sender(self):
+        t = self._settled_payout_pending()
+        service.fail_and_refund(t, "payout failed")
+        t.refresh_from_db()
+        self.assertEqual(t.status, Status.REFUNDED)
+        self.assertTrue(t.refund_ref)
+        # Sender is made whole; commission revenue is reversed to net zero.
+        self.assertTrue(t.ledger_entries.filter(account="sender_refund", direction="credit").exists())
+        from django.db.models import Sum
+        rev = t.ledger_entries.filter(account="ubique_revenue")
+        credit = rev.filter(direction="credit").aggregate(s=Sum("amount"))["s"] or 0
+        debit = rev.filter(direction="debit").aggregate(s=Sum("amount"))["s"] or 0
+        self.assertEqual(credit, debit)
+
+    def test_refund_is_idempotent(self):
+        t = self._settled_payout_pending(key="rf2")
+        service.fail_and_refund(t, "x")
+        t.refresh_from_db()
+        service.refund(t)  # second call is a no-op
+        t.refresh_from_db()
+        self.assertEqual(t.ledger_entries.filter(account="sender_refund").count(), 1)
+
+    def test_no_charge_no_money_refund(self):
+        # Failed before pay-in settled → refunded with no money movement.
+        t = self._create(key="rf3")
+        t.advance(Status.PAYIN_PENDING)
+        service.fail_and_refund(t, "payin failed")
+        t.refresh_from_db()
+        self.assertEqual(t.status, Status.REFUNDED)
+        self.assertFalse(t.ledger_entries.filter(account="sender_refund").exists())
+
+
+class AuditTests(_Base):
+    def test_completed_transfer_is_audited(self):
+        from ubique.audit.models import AuditLog
+        t = self._create(key="aud")
+        service.execute(t.id)
+        self.assertTrue(AuditLog.objects.filter(
+            action="transfer.completed", target=f"transfer:{t.id}").exists())
+
+    def test_refund_is_audited(self):
+        from ubique.audit.models import AuditLog
+        t = self._create(key="aud2")
+        t.advance(Status.PAYIN_PENDING)
+        service.fail_and_refund(t, "x")
+        self.assertTrue(AuditLog.objects.filter(action="transfer.failed").exists())
+        self.assertTrue(AuditLog.objects.filter(action="transfer.refunded").exists())
+
+
 class MultisigTests(_Base):
     def setUp(self):
         super().setUp()
@@ -216,7 +279,7 @@ class MultisigTests(_Base):
             s.save()
 
     def _settings(self, **over):
-        base = dict(MULTISIG_ENABLED=True, MULTISIG_THRESHOLD=2, MULTISIG_MIN_USDT=100)
+        base = {"MULTISIG_ENABLED": True, "MULTISIG_THRESHOLD": 2, "MULTISIG_MIN_USDT": 100}
         base.update(over)
         return override_settings(UBIQUE=ubique(**base))
 

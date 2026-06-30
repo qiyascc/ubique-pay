@@ -84,7 +84,8 @@ class SumsubKycProvider(KycProvider):
             },
         )
         import json
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        # URL is built from the hardcoded https Sumsub base; safe scheme.
+        with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310
             return json.loads(resp.read().decode())
 
     def _access_token(self, user, ttl=600):

@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from .state import Status, can_transition, InvalidTransition
+from .state import InvalidTransition, Status, can_transition
 
 
 class Transfer(models.Model):
@@ -36,6 +36,7 @@ class Transfer(models.Model):
     payin_ref = models.CharField(max_length=128, blank=True)
     chain_tx = models.CharField(max_length=128, blank=True)
     payout_ref = models.CharField(max_length=128, blank=True)
+    refund_ref = models.CharField(max_length=128, blank=True)
     failure_reason = models.CharField(max_length=255, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

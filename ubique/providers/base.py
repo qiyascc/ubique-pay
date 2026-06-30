@@ -30,6 +30,12 @@ class PayoutResult:
     status: str  # "pending" | "paid" | "failed"
 
 
+@dataclass
+class RefundResult:
+    provider_ref: str
+    status: str  # "refunded" | "pending" | "failed"
+
+
 class OnRampProvider(ABC):
     """Charges the sender's card and settles USDT to our treasury wallet."""
 
@@ -39,6 +45,11 @@ class OnRampProvider(ABC):
 
     @abstractmethod
     def get_payin(self, provider_ref: str) -> PayinResult: ...
+
+    def refund_payin(self, *, provider_ref: str, amount: Decimal, currency: str,
+                     idempotency_key: str) -> RefundResult:
+        """Reverse a settled card charge back to the sender."""
+        raise NotImplementedError
 
 
 class ChainSender(ABC):
