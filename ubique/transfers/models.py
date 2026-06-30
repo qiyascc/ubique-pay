@@ -111,6 +111,51 @@ class WebhookEvent(models.Model):
         return not self.processed and self.attempts >= max_attempts
 
 
+class WebhookEndpoint(models.Model):
+    """A merchant/integration endpoint that receives signed event callbacks."""
+
+    url = models.URLField()
+    secret = models.CharField(max_length=128)
+    # Comma-separated event types, or "*" for all.
+    events = models.CharField(max_length=255, default="*")
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def subscribes(self, event_type):
+        subs = [e.strip() for e in self.events.split(",") if e.strip()]
+        return "*" in subs or event_type in subs
+
+    def __str__(self):
+        return self.url
+
+
+class OutboundDelivery(models.Model):
+    """A queued/attempted delivery of one event to one endpoint."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        DELIVERED = "delivered", "Delivered"
+        FAILED = "failed", "Failed (dead-lettered)"
+
+    endpoint = models.ForeignKey(
+        WebhookEndpoint, on_delete=models.CASCADE, related_name="deliveries"
+    )
+    event_type = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(auto_now_add=True)
+    response_code = models.IntegerField(null=True, blank=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.event_type} -> {self.endpoint.url} ({self.status})"
+
+
 class OnchainApproval(models.Model):
     """Multisig gate for a treasury (on-chain) movement: requires ``threshold``
     approvals from treasury signers before the USDT is broadcast."""

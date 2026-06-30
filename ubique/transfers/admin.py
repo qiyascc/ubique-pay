@@ -1,6 +1,28 @@
 from django.contrib import admin
 
-from .models import LedgerEntry, OnchainApproval, Transfer, WebhookEvent
+from .models import (
+    LedgerEntry,
+    OnchainApproval,
+    OutboundDelivery,
+    Transfer,
+    WebhookEndpoint,
+    WebhookEvent,
+)
+
+
+@admin.register(WebhookEndpoint)
+class WebhookEndpointAdmin(admin.ModelAdmin):
+    list_display = ("url", "events", "enabled", "created_at")
+    list_filter = ("enabled",)
+
+
+@admin.register(OutboundDelivery)
+class OutboundDeliveryAdmin(admin.ModelAdmin):
+    list_display = ("event_type", "endpoint", "status", "attempts",
+                    "response_code", "next_attempt_at")
+    list_filter = ("status", "event_type")
+    readonly_fields = ("endpoint", "event_type", "payload", "status", "attempts",
+                       "next_attempt_at", "response_code", "error", "created_at")
 
 
 @admin.register(OnchainApproval)

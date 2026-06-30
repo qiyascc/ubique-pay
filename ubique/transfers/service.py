@@ -24,7 +24,19 @@ from ubique.providers import registry
 from ubique.quotes.engine import build_quote
 
 from .models import LedgerEntry, Transfer
+from .outbound import enqueue as emit_event
 from .state import Status, can_transition
+
+
+def _event_payload(transfer):
+    return {
+        "transfer_id": transfer.id,
+        "status": transfer.status,
+        "send_amount": str(transfer.send_amount),
+        "send_currency": transfer.send_currency,
+        "receive_amount": str(transfer.receive_amount),
+        "receive_currency": transfer.receive_currency,
+    }
 
 
 class KycRequired(Exception):
@@ -229,6 +241,7 @@ def complete_payout(transfer):
     _ledger(transfer, "recipient_card", "credit", transfer.receive_amount, transfer.receive_currency)
     audit_log("transfer.completed", target=f"transfer:{transfer.id}",
               amount=str(transfer.receive_amount), currency=transfer.receive_currency)
+    emit_event("transfer.completed", _event_payload(transfer))
     if settings.UBIQUE.get("LIQUIDITY_ENFORCED"):
         from django.db.models import F
 
@@ -242,6 +255,7 @@ def fail(transfer, reason):
     if can_transition(transfer.status, Status.FAILED):
         transfer.advance(Status.FAILED, failure_reason=reason[:255])
         audit_log("transfer.failed", target=f"transfer:{transfer.id}", reason=reason[:255])
+        emit_event("transfer.failed", _event_payload(transfer))
 
 
 def refund(transfer):
@@ -271,6 +285,7 @@ def refund(transfer):
         transfer.advance(Status.REFUNDED)
     audit_log("transfer.refunded", target=f"transfer:{transfer.id}",
               amount=str(transfer.send_amount), currency=transfer.send_currency)
+    emit_event("transfer.refunded", _event_payload(transfer))
     return transfer
 
 

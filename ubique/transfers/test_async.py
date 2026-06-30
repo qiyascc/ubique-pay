@@ -207,6 +207,61 @@ class DynamicPricingTests(_Base):
         self.assertEqual(self._quote("600").commission, Decimal("3.00"))   # 600 * 0.5% (tier)
 
 
+class OutboundWebhookTests(_Base):
+    def test_completed_enqueues_and_delivers_signed(self):
+        from unittest import mock
+
+        from ubique.transfers import outbound
+        from ubique.transfers.models import OutboundDelivery, WebhookEndpoint
+
+        WebhookEndpoint.objects.create(
+            url="https://merchant.example/hook", secret="whsec", events="*")
+        t = self._create(key="ob1")
+        service.execute(t.id)  # completes → enqueues a delivery
+
+        delivery = OutboundDelivery.objects.get(event_type="transfer.completed")
+        captured = {}
+
+        def fake_send(url, body, headers, timeout=10):
+            captured.update(url=url, body=body, headers=headers)
+            return 200
+
+        with mock.patch.object(outbound, "send_request", side_effect=fake_send):
+            delivered, failed = outbound.deliver_due()
+
+        self.assertEqual(delivered, 1)
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.status, "delivered")
+        # Signature is HMAC-SHA256(secret, "<ts>.<body>").
+        ts = captured["headers"]["X-Ubique-Timestamp"]
+        self.assertEqual(
+            captured["headers"]["X-Ubique-Signature"],
+            outbound.sign("whsec", ts, captured["body"]),
+        )
+
+    def test_non_2xx_dead_letters_at_limit(self):
+        from unittest import mock
+
+        from ubique.transfers import outbound
+        from ubique.transfers.models import OutboundDelivery, WebhookEndpoint
+
+        WebhookEndpoint.objects.create(url="https://x/hook", secret="s", events="transfer.completed")
+        t = self._create(key="ob2")
+        service.execute(t.id)
+        with override_settings(UBIQUE=ubique(OUTBOUND_WEBHOOK_MAX_ATTEMPTS=1)), \
+                mock.patch.object(outbound, "send_request", return_value=500):
+            outbound.deliver_due()
+        d = OutboundDelivery.objects.get(event_type="transfer.completed")
+        self.assertEqual(d.status, "failed")
+
+    def test_endpoint_event_filter(self):
+        from ubique.transfers.models import OutboundDelivery, WebhookEndpoint
+        WebhookEndpoint.objects.create(url="https://y/hook", secret="s", events="transfer.refunded")
+        t = self._create(key="ob3")
+        service.execute(t.id)  # completed, not refunded → nothing queued
+        self.assertEqual(OutboundDelivery.objects.count(), 0)
+
+
 class RefundTests(_Base):
     def _settled_payout_pending(self, key="rf"):
         """Drive a transfer to PAYOUT_PENDING with pay-in settled."""
