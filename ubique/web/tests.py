@@ -4,6 +4,23 @@ from django.test import TestCase, override_settings
 from ubique.accounts.models import KycStatus, User
 
 
+class ObservabilityTests(TestCase):
+    def test_healthz_ok(self):
+        r = self.client.get("/healthz")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["status"], "ok")
+        self.assertIn("X-Request-ID", r)
+
+    def test_readyz_checks_dependencies(self):
+        r = self.client.get("/readyz")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["status"], "ready")
+
+    def test_request_id_propagates(self):
+        r = self.client.get("/healthz", HTTP_X_REQUEST_ID="trace-abc")
+        self.assertEqual(r["X-Request-ID"], "trace-abc")
+
+
 @override_settings(DEBUG=True)
 class OpsDashboardTests(TestCase):
     def test_staff_sees_dashboard(self):
