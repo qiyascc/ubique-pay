@@ -104,14 +104,18 @@ class ApiEndToEndTests(TestCase):
             format="json",
         ).json()
 
+        # Idempotency via the HTTP header (no body key).
         r = self.client.post(
             "/api/v1/transfers/",
             {
                 "source_card_id": card["id"], "recipient_card_last4": "9999",
-                "send_amount": "200", "send_currency": "USD",
-                "receive_currency": "AZN", "idempotency_key": "api-1",
+                "send_amount": "200", "send_currency": "USD", "receive_currency": "AZN",
             },
-            format="json",
+            format="json", HTTP_IDEMPOTENCY_KEY="api-hdr-1",
         )
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.json()["status"], Status.COMPLETED)
+
+    def test_openapi_schema_is_public(self):
+        r = self.client.get("/api/v1/schema/")
+        self.assertEqual(r.status_code, 200)

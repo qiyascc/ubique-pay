@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "drf_spectacular",
     "corsheaders",
     "ubique.accounts",
     "ubique.wallets",
@@ -128,6 +129,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
@@ -224,6 +226,14 @@ CONTENT_SECURITY_POLICY = os.environ.get(
 # Demo provider auto-verifies; switch to Sumsub in production.
 KYC_PROVIDER = os.environ.get("KYC_PROVIDER", "ubique.accounts.kyc.DemoKycProvider")
 SUMSUB_WEBHOOK_SECRET = os.environ.get("SUMSUB_WEBHOOK_SECRET", "")
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Ubique Pay API",
+    "DESCRIPTION": "Cross-border card → USDT → card payments.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+}
 
 # --- Telegram Mini App ---------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")

@@ -40,6 +40,14 @@ class TransferListCreate(generics.ListCreateAPIView):
         v = payload.validated_data
         card = PaymentCard.objects.get(id=v["source_card_id"], user=request.user)
 
+        # Idempotency-Key header (preferred) or body key.
+        idem = request.headers.get("Idempotency-Key") or v.get("idempotency_key")
+        if not idem:
+            return Response(
+                {"detail": "Idempotency key required (Idempotency-Key header or body)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             token, last4, brand, name = self._resolve_recipient(request, v)
             transfer = service.create_transfer(
@@ -52,7 +60,7 @@ class TransferListCreate(generics.ListCreateAPIView):
                 send_amount=v["send_amount"],
                 send_currency=v["send_currency"].upper(),
                 receive_currency=v["receive_currency"].upper(),
-                idempotency_key=v["idempotency_key"],
+                idempotency_key=idem,
             )
         except (service.LimitExceeded, service.ComplianceReject) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)

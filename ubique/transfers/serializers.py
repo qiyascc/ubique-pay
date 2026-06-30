@@ -45,7 +45,8 @@ class CreateTransferSerializer(serializers.Serializer):
     send_amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0)
     send_currency = serializers.CharField(max_length=8)
     receive_currency = serializers.CharField(max_length=8)
-    idempotency_key = serializers.CharField(max_length=64)
+    # Optional in the body — the Idempotency-Key HTTP header is preferred.
+    idempotency_key = serializers.CharField(max_length=64, required=False, allow_blank=True)
 
     def validate_source_card_id(self, value):
         user = self.context["request"].user
