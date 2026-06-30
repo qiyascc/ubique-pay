@@ -188,7 +188,7 @@ UBIQUE = {
     "ONRAMP_PROVIDER": os.environ.get("UBIQUE_ONRAMP", "ubique.providers.mock.MockOnRampProvider"),
     "PAYOUT_PROVIDER": os.environ.get("UBIQUE_PAYOUT", "ubique.providers.mock.MockPayoutProvider"),
     "CHAIN_SENDER": os.environ.get("UBIQUE_CHAIN_SENDER", "ubique.providers.mock.MockChainSender"),
-    "FX_ORACLE": os.environ.get("UBIQUE_FX_ORACLE", "ubique.providers.mock.MockFxOracle"),
+    "FX_ORACLE": os.environ.get("UBIQUE_FX_ORACLE", "ubique.providers.fx.CachingMultiSourceFxOracle"),
     "NETWORK_FEE_ORACLE": os.environ.get("UBIQUE_FEE_ORACLE", "ubique.providers.mock.MockNetworkFeeOracle"),
     # TON-first (the Telegram-native rail with deep USDT liquidity). The router
     # still picks the cheapest of whatever is listed — add SOLANA/TRON per
@@ -212,4 +212,11 @@ UBIQUE = {
     # Webhook signing secrets (per provider).
     "ONRAMP_WEBHOOK_SECRET": os.environ.get("ONRAMP_WEBHOOK_SECRET", ""),
     "PAYOUT_WEBHOOK_SECRET": os.environ.get("PAYOUT_WEBHOOK_SECRET", ""),
+    "MAX_WEBHOOK_ATTEMPTS": int(os.environ.get("UBIQUE_MAX_WEBHOOK_ATTEMPTS", "5")),
+    # FX: multiple sources aggregated (median) and cached.
+    "FX_SOURCES": env_list(
+        "UBIQUE_FX_SOURCES",
+        "ubique.providers.fx.SourceA,ubique.providers.fx.SourceB",
+    ),
+    "FX_CACHE_TTL": int(os.environ.get("UBIQUE_FX_CACHE_TTL", "60")),
 }

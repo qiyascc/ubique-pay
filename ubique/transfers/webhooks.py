@@ -1,10 +1,13 @@
-"""Signed, idempotent provider webhooks that drive the async state machine.
+"""Signed, idempotent provider webhooks with a retry / dead-letter queue.
 
-Each request must carry an ``X-Ubique-Signature`` header = hex HMAC-SHA256 of
-the raw body using the per-provider secret. Events are deduped on
-(provider, event id) so retries never double-process.
+Each request must carry ``X-Ubique-Signature`` = hex HMAC-SHA256 of the raw body
+using the per-provider secret. Events are deduped on (provider, external_id).
 
-Normalised event body:  {"id": "...", "type": "payin.settled", "ref": "<provider_ref>"}
+Processing is resilient: if it can't complete yet (e.g. the webhook arrives
+before the transfer row is committed) a ``RetryableError`` is raised, the event
+is kept unprocessed with the error recorded, and ``manage.py retry_webhooks``
+re-runs it. Events that exceed ``MAX_WEBHOOK_ATTEMPTS`` are dead-lettered
+(visible in the admin).
 """
 
 import hashlib
@@ -22,6 +25,17 @@ from . import service
 from .models import Transfer, WebhookEvent
 
 
+class RetryableError(Exception):
+    pass
+
+
+# provider -> (transfer ref field, {event type: action})
+_HANDLERS = {
+    "onramp": ("payin_ref", {"payin.settled": "settle", "payin.failed": "fail"}),
+    "payout": ("payout_ref", {"payout.paid": "complete", "payout.failed": "fail"}),
+}
+
+
 def verify_signature(secret: str, raw_body: bytes, signature: str) -> bool:
     if not secret or not signature:
         return False
@@ -29,13 +43,49 @@ def verify_signature(secret: str, raw_body: bytes, signature: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 
+def process_event(event: WebhookEvent):
+    """Apply one event to its transfer. Raises RetryableError if not yet possible."""
+    cfg = _HANDLERS.get(event.provider)
+    if not cfg:
+        return
+    ref_field, actions = cfg
+    action = actions.get(event.event_type)
+    ref = (event.payload or {}).get("ref")
+    if not action or not ref:
+        return  # unknown/irrelevant event — nothing to do
+
+    transfer = Transfer.objects.select_for_update().filter(**{ref_field: ref}).first()
+    if transfer is None:
+        raise RetryableError(f"No transfer for {ref_field}={ref} yet.")
+
+    if action == "settle":
+        service.settle_payin(transfer)
+    elif action == "complete":
+        service.complete_payout(transfer)
+    elif action == "fail":
+        service.fail(transfer, "Provider reported failure.")
+
+
+def _run(event):
+    """Attempt processing, recording attempts/errors. Returns True if processed."""
+    event.attempts += 1
+    try:
+        process_event(event)
+        event.processed = True
+        event.error = ""
+    except RetryableError as exc:
+        event.error = str(exc)
+    except Exception as exc:  # noqa: BLE001 - keep for retry, record the reason
+        event.error = f"{type(exc).__name__}: {exc}"
+    event.save(update_fields=["processed", "attempts", "error"])
+    return event.processed
+
+
 class _BaseWebhook(APIView):
     authentication_classes: list = []
     permission_classes = [AllowAny]
     provider = ""
     secret_setting = ""
-    ref_field = ""          # Transfer field that matches event["ref"]
-    handlers: dict = {}     # event type -> ("settle"|"complete"|"fail")
 
     def post(self, request):
         secret = settings.UBIQUE.get(self.secret_setting, "")
@@ -45,7 +95,7 @@ class _BaseWebhook(APIView):
                             status=status.HTTP_401_UNAUTHORIZED)
         try:
             data = json.loads(request.body.decode())
-            event_id, etype, ref = data["id"], data["type"], data.get("ref")
+            event_id = data["id"]
         except (ValueError, KeyError):
             return Response({"detail": "Malformed event."},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -53,42 +103,19 @@ class _BaseWebhook(APIView):
         with transaction.atomic():
             event, created = WebhookEvent.objects.select_for_update().get_or_create(
                 provider=self.provider, external_id=event_id,
-                defaults={"event_type": etype, "payload": data},
+                defaults={"event_type": data.get("type", ""), "payload": data},
             )
             if not created and event.processed:
                 return Response({"detail": "Already processed."})  # idempotent
-
-            action = self.handlers.get(etype)
-            if action and ref:
-                self._apply(action, ref)
-            event.processed = True
-            event.save(update_fields=["processed"])
+            _run(event)
         return Response({"detail": "ok"})
-
-    def _apply(self, action, ref):
-        transfer = (
-            Transfer.objects.select_for_update()
-            .filter(**{self.ref_field: ref}).first()
-        )
-        if transfer is None:
-            return
-        if action == "settle":
-            service.settle_payin(transfer)
-        elif action == "complete":
-            service.complete_payout(transfer)
-        elif action == "fail":
-            service.fail(transfer, "Provider reported failure.")
 
 
 class OnRampWebhook(_BaseWebhook):
     provider = "onramp"
     secret_setting = "ONRAMP_WEBHOOK_SECRET"
-    ref_field = "payin_ref"
-    handlers = {"payin.settled": "settle", "payin.failed": "fail"}
 
 
 class PayoutWebhook(_BaseWebhook):
     provider = "payout"
     secret_setting = "PAYOUT_WEBHOOK_SECRET"
-    ref_field = "payout_ref"
-    handlers = {"payout.paid": "complete", "payout.failed": "fail"}

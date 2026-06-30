@@ -61,25 +61,38 @@ def build_quote(*, send_amount, send_currency, receive_currency) -> Quote:
 
     fx = registry.fx_oracle()
 
+    # Per-corridor dynamic pricing: corridor override → global default.
+    def pick(corridor_value, global_key):
+        return corridor_value if corridor_value is not None else Decimal(str(cfg[global_key]))
+
+    onramp_rate = pick(corridor.onramp_fee_rate, "ONRAMP_FEE_RATE")
+    payout_rate = pick(corridor.payout_fee_rate, "PAYOUT_FEE_RATE")
+    spread_rate = pick(corridor.fx_spread, "FX_SPREAD")
+    # Amount-tiered commission: tier rate → corridor override → global.
+    if (corridor.tier_threshold is not None and corridor.tier_commission_rate is not None
+            and send_amount >= corridor.tier_threshold):
+        commission_rate = corridor.tier_commission_rate
+    else:
+        commission_rate = pick(corridor.commission_rate, "COMMISSION_RATE")
+
     # 1) Card -> USDT (on-ramp fee taken by the acquiring provider).
-    onramp_fee = send_amount * Decimal(str(cfg["ONRAMP_FEE_RATE"]))
+    onramp_fee = send_amount * onramp_rate
     send_in_usdt = (send_amount - onramp_fee) * fx.rate(send_currency, "USDT")
 
     # 2) Cheapest on-chain network allowed by this corridor.
     network, network_fee = _cheapest_network(corridor.network_list())
 
-    # 3) Ubique commission (corridor override if set) + payout fee.
-    rate = corridor.commission_rate if corridor.commission_rate is not None else Decimal(str(cfg["COMMISSION_RATE"]))
-    commission = send_amount * rate
+    # 3) Ubique commission + payout fee.
+    commission = send_amount * commission_rate
     commission_usdt = commission * fx.rate(send_currency, "USDT")
-    payout_fee_usdt = send_in_usdt * Decimal(str(cfg["PAYOUT_FEE_RATE"]))
+    payout_fee_usdt = send_in_usdt * payout_rate
 
     usdt_after = send_in_usdt - network_fee - commission_usdt - payout_fee_usdt
     if usdt_after <= 0:
         raise ValueError("Amount too small to cover fees.")
 
     # 4) USDT -> recipient currency at mid + spread.
-    spread = Decimal("1") - Decimal(str(cfg["FX_SPREAD"]))
+    spread = Decimal("1") - spread_rate
     receive_amount = usdt_after * fx.rate("USDT", receive_currency) * spread
     # Effective send->receive rate, crossed via USDT so we don't need every pair.
     fx_rate = fx.rate(send_currency, "USDT") * fx.rate("USDT", receive_currency)

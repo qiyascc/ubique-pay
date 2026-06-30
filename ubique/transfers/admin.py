@@ -27,7 +27,9 @@ class LedgerEntryAdmin(admin.ModelAdmin):
 
 @admin.register(WebhookEvent)
 class WebhookEventAdmin(admin.ModelAdmin):
-    list_display = ("provider", "event_type", "external_id", "processed", "received_at")
+    list_display = ("provider", "event_type", "external_id", "processed",
+                    "attempts", "received_at")
     list_filter = ("provider", "processed")
     search_fields = ("external_id",)
-    readonly_fields = ("provider", "external_id", "event_type", "payload", "received_at")
+    readonly_fields = ("provider", "external_id", "event_type", "payload",
+                       "attempts", "error", "received_at")

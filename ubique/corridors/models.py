@@ -19,6 +19,13 @@ class Corridor(models.Model):
         max_digits=5, decimal_places=4, null=True, blank=True,
         help_text="Overrides the global commission when set.",
     )
+    # Per-corridor fee overrides (fall back to the global rates when null).
+    onramp_fee_rate = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    payout_fee_rate = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    fx_spread = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    # Amount-tiered pricing: at/above this amount, charge the lower tier rate.
+    tier_threshold = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    tier_commission_rate = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
     enabled = models.BooleanField(default=True)
 
     class Meta:

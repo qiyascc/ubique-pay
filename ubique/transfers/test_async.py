@@ -129,6 +129,83 @@ class CorridorTests(_Base):
         self.assertEqual(q.network, "TRON")
 
 
+class WebhookRetryTests(_Base):
+    def _post_onramp(self, body):
+        with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
+            return self.client.post(
+                "/api/v1/transfers/webhooks/onramp/", data=body,
+                content_type="application/json", HTTP_X_UBIQUE_SIGNATURE=sign(SECRET, body),
+            )
+
+    def test_event_before_transfer_is_retried(self):
+        from ubique.transfers.models import WebhookEvent
+        body = json.dumps({"id": "early", "type": "payin.settled", "ref": "late-ref"}).encode()
+        r = self._post_onramp(body)
+        self.assertEqual(r.status_code, 200)
+        ev = WebhookEvent.objects.get(external_id="early")
+        self.assertFalse(ev.processed)
+        self.assertEqual(ev.attempts, 1)
+
+        # The transfer shows up later; the retry queue then completes it.
+        t = self._pending_payin(key="late", ref="late-ref")
+        with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET)):
+            call_command("retry_webhooks")
+        ev.refresh_from_db(); t.refresh_from_db()
+        self.assertTrue(ev.processed)
+        self.assertEqual(t.status, Status.COMPLETED)
+
+    def test_dead_letter_after_max_attempts(self):
+        from ubique.transfers.models import WebhookEvent
+        body = json.dumps({"id": "dead", "type": "payin.settled", "ref": "never"}).encode()
+        with override_settings(UBIQUE=ubique(ONRAMP_WEBHOOK_SECRET=SECRET, MAX_WEBHOOK_ATTEMPTS=2)):
+            self._post_onramp(body)        # attempt 1
+            call_command("retry_webhooks")  # attempt 2 → at the limit
+        ev = WebhookEvent.objects.get(external_id="dead")
+        self.assertFalse(ev.processed)
+        self.assertTrue(ev.is_dead_lettered(2))
+
+
+class FxOracleTests(TestCase):
+    def test_median_of_sources_and_caches(self):
+        from django.core.cache import cache
+
+        from ubique.providers.fx import CachingMultiSourceFxOracle
+        cache.delete("fx:USDT:AZN")
+        oracle = CachingMultiSourceFxOracle()
+        # SourceA=1.70*1.002, SourceB=1.70*0.998 → median = 1.70
+        self.assertEqual(oracle.rate("USDT", "AZN"), Decimal("1.70"))
+        self.assertIsNotNone(cache.get("fx:USDT:AZN"))  # result cached
+
+    def test_same_currency_is_one(self):
+        from ubique.providers.fx import CachingMultiSourceFxOracle
+        self.assertEqual(CachingMultiSourceFxOracle().rate("USD", "USD"), Decimal("1"))
+
+
+class DynamicPricingTests(_Base):
+    def _quote(self, amount):
+        from ubique.quotes.engine import build_quote
+        return build_quote(send_amount=Decimal(amount), send_currency="USD", receive_currency="AZN")
+
+    def test_corridor_onramp_fee_override(self):
+        from ubique.corridors.models import Corridor
+        base = self._quote("200")
+        Corridor.objects.filter(send_currency="USD", receive_currency="AZN").update(
+            onramp_fee_rate=Decimal("0.05")
+        )
+        higher = self._quote("200")
+        self.assertEqual(higher.onramp_fee, Decimal("10.00"))   # 200 * 0.05
+        self.assertGreater(base.receive_amount, higher.receive_amount)
+
+    def test_amount_tier_lowers_commission(self):
+        from ubique.corridors.models import Corridor
+        Corridor.objects.filter(send_currency="USD", receive_currency="AZN").update(
+            commission_rate=Decimal("0.02"),
+            tier_threshold=Decimal("500"), tier_commission_rate=Decimal("0.005"),
+        )
+        self.assertEqual(self._quote("200").commission, Decimal("4.00"))   # 200 * 2%
+        self.assertEqual(self._quote("600").commission, Decimal("3.00"))   # 600 * 0.5% (tier)
+
+
 class LiquidityTests(_Base):
     def test_insufficient_float_blocks_transfer(self):
         with override_settings(UBIQUE=ubique(LIQUIDITY_ENFORCED=True)):

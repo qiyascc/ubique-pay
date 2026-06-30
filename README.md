@@ -161,9 +161,16 @@ Built like a real rail, not a demo:
 - **Webhook security** — every event is verified (`X-Ubique-Signature` =
   HMAC-SHA256 of the raw body) and **deduped** on `(provider, event id)`, so
   retries never double-process or double-spend.
+- **Retry / dead-letter queue** — an event that can't be applied yet (e.g. it
+  arrives before its transfer commits) is kept with the error recorded;
+  `manage.py retry_webhooks` re-runs it, dead-lettering anything past
+  `MAX_WEBHOOK_ATTEMPTS` (visible in the admin).
 - **Reconciliation** — `python manage.py reconcile_transfers` polls providers
   and advances/fails any transfer stuck pending (a safety net for missed
-  webhooks). Run it on a timer.
+  webhooks). Run both on a timer.
+- **Pricing** — a **multi-source FX oracle** aggregates rate sources (median)
+  and caches per pair (`FX_CACHE_TTL`); each corridor can override the on-ramp /
+  payout / commission / spread rates and apply **amount-tiered** commission.
 - **Risk & compliance** — KYC gate, per-user 24h **velocity limit**, and a
   sanctions **denylist** screen before any money moves.
 - **Idempotency** — transfer creation, execution and every webhook are

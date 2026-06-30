@@ -91,6 +91,8 @@ class WebhookEvent(models.Model):
     event_type = models.CharField(max_length=64)
     payload = models.JSONField(default=dict)
     processed = models.BooleanField(default=False)
+    attempts = models.PositiveIntegerField(default=0)
+    error = models.TextField(blank=True)
     received_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -99,3 +101,6 @@ class WebhookEvent(models.Model):
 
     def __str__(self):
         return f"{self.provider}:{self.event_type}:{self.external_id}"
+
+    def is_dead_lettered(self, max_attempts):
+        return not self.processed and self.attempts >= max_attempts
