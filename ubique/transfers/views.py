@@ -1,7 +1,7 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -75,6 +75,26 @@ class TransferDetail(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Transfer.objects.filter(user=self.request.user)
+
+
+class TransferReleaseView(APIView):
+    """A compliance officer releases a transfer held for review, then runs it."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk):
+        get_object_or_404(Transfer, pk=pk)
+        with transaction.atomic():
+            transfer = Transfer.objects.select_for_update().get(pk=pk)
+            service.release_for_review(transfer, request.user)
+        try:
+            service.execute(transfer.id)
+        except (service.KycRequired, service.LiquidityError, service.ReviewRequired):
+            pass
+        except Exception:  # noqa: BLE001 - marked FAILED inside execute
+            pass
+        transfer.refresh_from_db()
+        return Response(TransferSerializer(transfer).data)
 
 
 class TransferApproveView(APIView):

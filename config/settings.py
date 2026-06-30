@@ -252,6 +252,17 @@ UBIQUE = {
     "MAX_DAILY": float(os.environ.get("UBIQUE_MAX_DAILY", "20000")),
     # Block payouts when the receive-currency float is insufficient.
     "LIQUIDITY_ENFORCED": env_bool("UBIQUE_LIQUIDITY_ENFORCED", "0"),
+    # AML / risk scoring.
+    "RISK_RULES": env_list(
+        "UBIQUE_RISK_RULES",
+        "ubique.transfers.risk.high_amount,ubique.transfers.risk.new_recipient,"
+        "ubique.transfers.risk.rapid_velocity",
+    ),
+    "RISK_REVIEW_THRESHOLD": int(os.environ.get("UBIQUE_RISK_REVIEW_THRESHOLD", "50")),
+    "RISK_BLOCK_THRESHOLD": int(os.environ.get("UBIQUE_RISK_BLOCK_THRESHOLD", "100")),
+    "RISK_REVIEW_AMOUNT": float(os.environ.get("UBIQUE_RISK_REVIEW_AMOUNT", "1000")),
+    "RISK_BLOCK_AMOUNT": float(os.environ.get("UBIQUE_RISK_BLOCK_AMOUNT", "15000")),
+    "RISK_HOURLY_COUNT": int(os.environ.get("UBIQUE_RISK_HOURLY_COUNT", "10")),
     # Comma-separated phones / card last4 to block (sanctions/compliance demo).
     "DENYLIST": env_list("UBIQUE_DENYLIST"),
     # OTP anti-abuse

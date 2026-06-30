@@ -52,6 +52,25 @@
   </div>
 </div>
 
+{% if held_for_review %}
+<div class="panel" style="border-color:var(--warn)">
+  <h2 style="color:var(--warn)">Held for compliance review</h2>
+  <table>
+    <tr><th>#</th><th>Amount</th><th>Risk</th><th>Reasons</th></tr>
+    {% for t in held_for_review %}
+    <tr>
+      <td><a href="/admin/transfers/transfer/{{ t.id }}/change/">{{ t.id }}</a></td>
+      <td>{{ t.send_amount }} {{ t.send_currency }}</td>
+      <td>{{ t.risk_score }}</td>
+      <td class="muted">{{ t.risk_reasons }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="muted" style="margin-top:8px">Release via the API
+  (<code>POST /api/v1/transfers/&lt;id&gt;/release/</code>) or the admin.</p>
+</div>
+{% endif %}
+
 {% if awaiting_approval %}
 <div class="panel" style="border-color:var(--warn)">
   <h2 style="color:var(--warn)">Awaiting treasury approval (multisig)</h2>

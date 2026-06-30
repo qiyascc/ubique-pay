@@ -41,6 +41,12 @@ class Transfer(models.Model):
     refund_ref = models.CharField(max_length=128, blank=True)
     failure_reason = models.CharField(max_length=255, blank=True)
 
+    # AML / risk.
+    risk_score = models.PositiveIntegerField(default=0)
+    risk_decision = models.CharField(max_length=10, default="allow")
+    risk_reasons = models.CharField(max_length=255, blank=True)
+    review_released = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

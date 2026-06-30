@@ -59,6 +59,10 @@ class NotASigner(Exception):
     pass
 
 
+class ReviewRequired(Exception):
+    pass
+
+
 # --- compliance / risk ----------------------------------------------------
 def _screen(user, recipient_last4):
     deny = set(settings.UBIQUE.get("DENYLIST", []))
@@ -110,6 +114,14 @@ def create_transfer(*, user, source_card, recipient_card_last4, recipient_refere
     _screen(user, recipient_card_last4)
     _check_velocity(user, send_amount)
 
+    from . import risk
+    assessment = risk.evaluate(user, {
+        "send_amount": send_amount, "recipient_last4": recipient_card_last4,
+        "send_currency": send_currency, "receive_currency": receive_currency,
+    })
+    if assessment.decision == "block":
+        raise ComplianceReject("Blocked by risk policy: " + ", ".join(assessment.reasons))
+
     quote = build_quote(
         send_amount=send_amount, send_currency=send_currency,
         receive_currency=receive_currency,
@@ -121,6 +133,8 @@ def create_transfer(*, user, source_card, recipient_card_last4, recipient_refere
         recipient_card_last4=recipient_card_last4,
         recipient_card_token=recipient_card_token, recipient_brand=recipient_brand,
         recipient_reference=recipient_reference, network=quote.network,
+        risk_score=assessment.score, risk_decision=assessment.decision,
+        risk_reasons=", ".join(assessment.reasons)[:255],
         usdt_transferred=quote.usdt_transferred, receive_amount=quote.receive_amount,
         commission=quote.commission, network_fee_usdt=quote.network_fee_usdt,
     )
@@ -140,6 +154,8 @@ def execute(transfer_id):
         raise KycRequired("Sender must complete KYC before transferring.")
     if transfer.status != Status.QUOTED:
         return transfer
+    if transfer.risk_decision == "review" and not transfer.review_released:
+        raise ReviewRequired("Transfer held for compliance review.")
 
     _check_liquidity(transfer)
 
@@ -293,3 +309,14 @@ def fail_and_refund(transfer, reason):
     """Mark failed and immediately reverse any settled funds to the sender."""
     fail(transfer, reason)
     refund(transfer)
+
+
+def release_for_review(transfer, officer):
+    """A compliance officer clears a held transfer so it can proceed."""
+    if transfer.risk_decision != "review" or transfer.review_released:
+        return transfer
+    transfer.review_released = True
+    transfer.save(update_fields=["review_released"])
+    audit_log("transfer.review_released", actor=officer, target=f"transfer:{transfer.id}",
+              score=transfer.risk_score)
+    return transfer

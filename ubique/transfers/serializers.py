@@ -21,7 +21,8 @@ class TransferSerializer(serializers.ModelSerializer):
             "id", "status", "send_amount", "send_currency", "receive_currency",
             "recipient_card_last4", "recipient_reference", "network",
             "usdt_transferred", "receive_amount", "commission", "network_fee_usdt",
-            "payin_ref", "chain_tx", "payout_ref", "failure_reason",
+            "payin_ref", "chain_tx", "payout_ref", "refund_ref", "failure_reason",
+            "risk_decision", "risk_score", "review_released",
             "created_at", "approval", "ledger_entries",
         ]
 

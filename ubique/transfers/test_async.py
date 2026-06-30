@@ -262,6 +262,32 @@ class OutboundWebhookTests(_Base):
         self.assertEqual(OutboundDelivery.objects.count(), 0)
 
 
+class RiskEngineTests(_Base):
+    def test_high_amount_is_held_for_review(self):
+        t = self._create(key="rk1", amount="1500")
+        self.assertEqual(t.risk_decision, "review")
+        with self.assertRaises(service.ReviewRequired):
+            service.execute(t.id)
+        t.refresh_from_db()
+        self.assertEqual(t.status, Status.QUOTED)
+
+    def test_release_lets_held_transfer_complete(self):
+        t = self._create(key="rk2", amount="1500")
+        service.release_for_review(t, self.user)
+        service.execute(Transfer.objects.get(pk=t.id).id)
+        t.refresh_from_db()
+        self.assertEqual(t.status, Status.COMPLETED)
+
+    def test_block_threshold_rejects_creation(self):
+        with override_settings(UBIQUE=ubique(RISK_BLOCK_AMOUNT=5000)), \
+                self.assertRaises(service.ComplianceReject):
+            self._create(key="rk3", amount="6000")
+
+    def test_normal_amount_is_allowed(self):
+        t = self._create(key="rk4", amount="200")
+        self.assertEqual(t.risk_decision, "allow")
+
+
 class RefundTests(_Base):
     def _settled_payout_pending(self, key="rf"):
         """Drive a transfer to PAYOUT_PENDING with pay-in settled."""

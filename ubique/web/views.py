@@ -178,6 +178,8 @@ def send(request):
             except (service.KycRequired, service.LiquidityError) as exc:
                 messages.error(request, str(exc))
                 return redirect("web:dashboard")
+            except service.ReviewRequired:
+                messages.info(request, "Your transfer is held for a quick compliance review.")
             except Exception:  # noqa: BLE001 - marked FAILED inside execute
                 messages.error(request, "Transfer failed. No funds were moved.")
             return redirect("web:transfer_detail", pk=transfer.id)
@@ -272,5 +274,8 @@ def ops_dashboard(request):
         "liquidity_enforced": settings.UBIQUE.get("LIQUIDITY_ENFORCED"),
         "awaiting_approval": qs.filter(status=Status.APPROVAL_PENDING)
                                .select_related("user", "onchain_approval"),
+        "held_for_review": qs.filter(
+            risk_decision="review", review_released=False, status=Status.QUOTED
+        ).select_related("user"),
     }
     return render(request, "web/ops.html", ctx)
