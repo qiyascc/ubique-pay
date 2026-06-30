@@ -36,17 +36,26 @@ class Quote:
         return {k: (str(v) if isinstance(v, Decimal) else v) for k, v in d.items()}
 
 
-def _cheapest_network():
+def _cheapest_network(allowed):
     oracle = registry.network_fee_oracle()
-    networks = settings.UBIQUE["SUPPORTED_NETWORKS"]
+    supported = set(settings.UBIQUE["SUPPORTED_NETWORKS"])
+    networks = [n for n in allowed if n in supported] or list(supported)
     return min(((n, oracle.fee_usdt(n)) for n in networks), key=lambda x: x[1])
 
 
 def build_quote(*, send_amount, send_currency, receive_currency) -> Quote:
+    from ubique.corridors.models import Corridor
+
     cfg = settings.UBIQUE
     send_amount = Decimal(str(send_amount))
 
-    lo, hi = Decimal(str(cfg["MIN_SEND"])), Decimal(str(cfg["MAX_SEND"]))
+    corridor = Corridor.objects.filter(
+        send_currency=send_currency, receive_currency=receive_currency, enabled=True
+    ).first()
+    if corridor is None:
+        raise ValueError(f"Corridor {send_currency}->{receive_currency} is not available.")
+
+    lo, hi = corridor.min_amount, corridor.max_amount
     if not (lo <= send_amount <= hi):
         raise ValueError(f"Amount must be between {lo} and {hi} {send_currency}.")
 
@@ -56,11 +65,12 @@ def build_quote(*, send_amount, send_currency, receive_currency) -> Quote:
     onramp_fee = send_amount * Decimal(str(cfg["ONRAMP_FEE_RATE"]))
     send_in_usdt = (send_amount - onramp_fee) * fx.rate(send_currency, "USDT")
 
-    # 2) Cheapest on-chain network.
-    network, network_fee = _cheapest_network()
+    # 2) Cheapest on-chain network allowed by this corridor.
+    network, network_fee = _cheapest_network(corridor.network_list())
 
-    # 3) Ubique commission + the payout (push-to-card) fee.
-    commission = send_amount * Decimal(str(cfg["COMMISSION_RATE"]))
+    # 3) Ubique commission (corridor override if set) + payout fee.
+    rate = corridor.commission_rate if corridor.commission_rate is not None else Decimal(str(cfg["COMMISSION_RATE"]))
+    commission = send_amount * rate
     commission_usdt = commission * fx.rate(send_currency, "USDT")
     payout_fee_usdt = send_in_usdt * Decimal(str(cfg["PAYOUT_FEE_RATE"]))
 

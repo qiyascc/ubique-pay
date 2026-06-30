@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "ubique.accounts",
     "ubique.wallets",
+    "ubique.corridors",
     "ubique.quotes",
     "ubique.transfers",
     "ubique.web",
@@ -201,6 +202,8 @@ UBIQUE = {
     "MIN_SEND": float(os.environ.get("UBIQUE_MIN_SEND", "20")),
     "MAX_SEND": float(os.environ.get("UBIQUE_MAX_SEND", "10000")),
     "MAX_DAILY": float(os.environ.get("UBIQUE_MAX_DAILY", "20000")),
+    # Block payouts when the receive-currency float is insufficient.
+    "LIQUIDITY_ENFORCED": env_bool("UBIQUE_LIQUIDITY_ENFORCED", "0"),
     # Comma-separated phones / card last4 to block (sanctions/compliance demo).
     "DENYLIST": env_list("UBIQUE_DENYLIST"),
     # OTP anti-abuse

@@ -38,6 +38,10 @@ class ComplianceReject(Exception):
     pass
 
 
+class LiquidityError(Exception):
+    pass
+
+
 # --- compliance / risk ----------------------------------------------------
 def _screen(user, recipient_last4):
     deny = set(settings.UBIQUE.get("DENYLIST", []))
@@ -56,6 +60,18 @@ def _check_velocity(user, amount):
     cap = settings.UBIQUE["MAX_DAILY"]
     if float(used) + float(amount) > cap:
         raise LimitExceeded(f"Daily limit of {cap} exceeded.")
+
+
+def _check_liquidity(transfer):
+    if not settings.UBIQUE.get("LIQUIDITY_ENFORCED"):
+        return
+    from ubique.corridors.models import TreasuryBalance
+
+    bal = TreasuryBalance.objects.filter(currency=transfer.receive_currency).first()
+    if bal is None or bal.available < transfer.receive_amount:
+        raise LiquidityError(
+            f"Insufficient {transfer.receive_currency} payout float."
+        )
 
 
 # --- ledger ---------------------------------------------------------------
@@ -106,9 +122,11 @@ def execute(transfer_id):
     if transfer.status != Status.QUOTED:
         return transfer
 
+    _check_liquidity(transfer)
+
     try:
         _initiate_payin(transfer)
-    except (KycRequired, LimitExceeded, ComplianceReject):
+    except (KycRequired, LimitExceeded, ComplianceReject, LiquidityError):
         raise
     except Exception as exc:  # noqa: BLE001
         fail(transfer, str(exc))
@@ -168,6 +186,13 @@ def complete_payout(transfer):
     transfer.advance(Status.COMPLETED)
     _ledger(transfer, "payout_pool", "debit", transfer.usdt_transferred, "USDT")
     _ledger(transfer, "recipient_card", "credit", transfer.receive_amount, transfer.receive_currency)
+    if settings.UBIQUE.get("LIQUIDITY_ENFORCED"):
+        from django.db.models import F
+
+        from ubique.corridors.models import TreasuryBalance
+        TreasuryBalance.objects.filter(currency=transfer.receive_currency).update(
+            available=F("available") - transfer.receive_amount
+        )
 
 
 def fail(transfer, reason):

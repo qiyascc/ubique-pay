@@ -134,6 +134,19 @@ credential-gated; the mocks stay the default so the project always runs.
 | `POST quotes/` | Fee breakdown + cheapest-network routing |
 | `GET/POST transfers/` · `GET transfers/{id}/` | Create/execute & inspect transfers (with ledger) |
 
+## 🌍 Corridors & treasury
+
+Money only moves over **explicitly enabled corridors**. A `Corridor`
+(`send → receive`) sets the allowed networks, min/max amounts and an optional
+commission override; the quote engine rejects any pair without an enabled
+corridor and routes over the cheapest of *that corridor's* networks. Manage them
+in the Django admin (`/admin/`) — your ops dashboard.
+
+A `TreasuryBalance` holds the **payout float** per currency. With
+`UBIQUE_LIQUIDITY_ENFORCED=1`, a transfer is blocked unless its receive currency
+has enough float, which is debited on payout — so you never promise a payout you
+can't fund.
+
 ## 🏦 Payment-system internals
 
 Built like a real rail, not a demo:

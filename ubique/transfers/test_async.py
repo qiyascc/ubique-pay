@@ -105,3 +105,46 @@ class ReconcileTests(_Base):
         call_command("reconcile_transfers")
         t.refresh_from_db()
         self.assertEqual(t.status, Status.COMPLETED)
+
+
+class CorridorTests(_Base):
+    def test_unknown_corridor_is_rejected(self):
+        from ubique.quotes.engine import build_quote
+        with self.assertRaises(ValueError):
+            build_quote(send_amount=Decimal("200"), send_currency="USD", receive_currency="XYZ")
+
+    def test_disabled_corridor_is_rejected(self):
+        from ubique.corridors.models import Corridor
+        from ubique.quotes.engine import build_quote
+        Corridor.objects.filter(send_currency="USD", receive_currency="AZN").update(enabled=False)
+        with self.assertRaises(ValueError):
+            build_quote(send_amount=Decimal("200"), send_currency="USD", receive_currency="AZN")
+
+    def test_corridor_restricts_network(self):
+        from ubique.corridors.models import Corridor
+        from ubique.quotes.engine import build_quote
+        # Force this corridor onto TRON even though TON is cheaper globally.
+        Corridor.objects.filter(send_currency="USD", receive_currency="AZN").update(networks="TRON")
+        q = build_quote(send_amount=Decimal("200"), send_currency="USD", receive_currency="AZN")
+        self.assertEqual(q.network, "TRON")
+
+
+class LiquidityTests(_Base):
+    def test_insufficient_float_blocks_transfer(self):
+        with override_settings(UBIQUE=ubique(LIQUIDITY_ENFORCED=True)):
+            t = self._create(key="liq1")
+            with self.assertRaises(service.LiquidityError):
+                service.execute(t.id)
+            t.refresh_from_db()
+            self.assertEqual(t.status, Status.QUOTED)
+
+    def test_sufficient_float_completes_and_debits(self):
+        from ubique.corridors.models import TreasuryBalance
+        TreasuryBalance.objects.create(currency="AZN", available=Decimal("1000"))
+        with override_settings(UBIQUE=ubique(LIQUIDITY_ENFORCED=True)):
+            t = self._create(key="liq2")
+            service.execute(t.id)
+            t.refresh_from_db()
+            self.assertEqual(t.status, Status.COMPLETED)
+            bal = TreasuryBalance.objects.get(currency="AZN")
+            self.assertEqual(bal.available, Decimal("1000") - t.receive_amount)

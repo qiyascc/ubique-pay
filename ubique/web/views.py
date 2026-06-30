@@ -142,7 +142,7 @@ def send(request):
                 return render(request, "web/send.html", {"form": form, "quote": quote})
             try:
                 service.execute(transfer.id)
-            except service.KycRequired as exc:
+            except (service.KycRequired, service.LiquidityError) as exc:
                 messages.error(request, str(exc))
                 return redirect("web:dashboard")
             except Exception:  # noqa: BLE001 - marked FAILED inside execute

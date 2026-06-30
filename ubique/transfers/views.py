@@ -38,7 +38,7 @@ class TransferListCreate(generics.ListCreateAPIView):
 
         try:
             service.execute(transfer.id)
-        except service.KycRequired as exc:
+        except (service.KycRequired, service.LiquidityError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except Exception:  # noqa: BLE001 - transfer is marked FAILED inside execute
             pass
