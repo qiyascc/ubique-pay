@@ -42,6 +42,10 @@ class LiquidityError(Exception):
     pass
 
 
+class NotASigner(Exception):
+    pass
+
+
 # --- compliance / risk ----------------------------------------------------
 def _screen(user, recipient_last4):
     deny = set(settings.UBIQUE.get("DENYLIST", []))
@@ -154,7 +158,39 @@ def settle_payin(transfer):
     transfer.advance(Status.PAYIN_SETTLED)
     _ledger(transfer, "treasury_usdt", "credit", transfer.usdt_transferred, "USDT")
     _ledger(transfer, "ubique_revenue", "credit", transfer.commission, transfer.send_currency)
-    _do_onchain_and_payout(transfer)
+    _after_payin(transfer)
+
+
+def _needs_approval(transfer):
+    cfg = settings.UBIQUE
+    return bool(cfg.get("MULTISIG_ENABLED")) and \
+        float(transfer.usdt_transferred) >= cfg["MULTISIG_MIN_USDT"]
+
+
+def _after_payin(transfer):
+    """Either gate the on-chain move behind multisig approval, or run it now."""
+    if _needs_approval(transfer):
+        from .models import OnchainApproval
+        transfer.advance(Status.APPROVAL_PENDING)
+        OnchainApproval.objects.get_or_create(
+            transfer=transfer,
+            defaults={"threshold": settings.UBIQUE["MULTISIG_THRESHOLD"]},
+        )
+    else:
+        _do_onchain_and_payout(transfer)
+
+
+def approve_onchain(transfer, signer):
+    """Record a treasury signer's approval; broadcast once the threshold is met."""
+    if not getattr(signer, "is_treasury_signer", False):
+        raise NotASigner("Only treasury signers can approve.")
+    if transfer.status != Status.APPROVAL_PENDING:
+        return transfer
+    approval = transfer.onchain_approval
+    approval.approvers.add(signer)
+    if approval.is_satisfied():
+        _do_onchain_and_payout(transfer)
+    return transfer
 
 
 def _do_onchain_and_payout(transfer):

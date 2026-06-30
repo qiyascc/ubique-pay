@@ -148,7 +148,17 @@ has enough float, which is debited on payout — so you never promise a payout y
 can't fund.
 
 A staff-only **operations dashboard** at `/ops/` shows live volume, the
-status mix, revenue, treasury floats and recent transfers.
+status mix, revenue, treasury floats, transfers **awaiting multisig approval**,
+and recent activity.
+
+### Multisig treasury
+
+With `UBIQUE_MULTISIG_ENABLED=1`, any on-chain move at or above
+`MULTISIG_MIN_USDT` is held in `APPROVAL_PENDING` and broadcast only after
+`MULTISIG_THRESHOLD` **treasury signers** (`is_treasury_signer` users) approve
+it via `POST /api/v1/transfers/{id}/approve/` — an M-of-N gate on the treasury.
+The underlying TON wallet can additionally be an on-chain Multisig contract
+(`TON_MULTISIG_ADDRESS`).
 
 ## 🏦 Payment-system internals
 

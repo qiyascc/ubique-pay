@@ -104,3 +104,26 @@ class WebhookEvent(models.Model):
 
     def is_dead_lettered(self, max_attempts):
         return not self.processed and self.attempts >= max_attempts
+
+
+class OnchainApproval(models.Model):
+    """Multisig gate for a treasury (on-chain) movement: requires ``threshold``
+    approvals from treasury signers before the USDT is broadcast."""
+
+    transfer = models.OneToOneField(
+        Transfer, on_delete=models.CASCADE, related_name="onchain_approval"
+    )
+    threshold = models.PositiveIntegerField()
+    approvers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="onchain_approvals"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def approval_count(self):
+        return self.approvers.count()
+
+    def is_satisfied(self):
+        return self.approvers.count() >= self.threshold
+
+    def __str__(self):
+        return f"Approval for #{self.transfer_id} ({self.approval_count()}/{self.threshold})"

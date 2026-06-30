@@ -52,6 +52,22 @@
   </div>
 </div>
 
+{% if awaiting_approval %}
+<div class="panel" style="border-color:var(--warn)">
+  <h2 style="color:var(--warn)">Awaiting treasury approval (multisig)</h2>
+  <table>
+    <tr><th>#</th><th>Amount</th><th style="text-align:right">Approvals</th></tr>
+    {% for t in awaiting_approval %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td>{{ t.usdt_transferred }} USDT → ····{{ t.recipient_card_last4 }}</td>
+      <td style="text-align:right">{{ t.onchain_approval.approval_count }}/{{ t.onchain_approval.threshold }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
 <div class="panel">
   <h2>Recent transfers</h2>
   <table>

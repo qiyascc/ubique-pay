@@ -234,5 +234,7 @@ def ops_dashboard(request):
         "corridors_total": Corridor.objects.count(),
         "recent": qs.select_related("user")[:12],
         "liquidity_enforced": settings.UBIQUE.get("LIQUIDITY_ENFORCED"),
+        "awaiting_approval": qs.filter(status=Status.APPROVAL_PENDING)
+                               .select_related("user", "onchain_approval"),
     }
     return render(request, "web/ops.html", ctx)

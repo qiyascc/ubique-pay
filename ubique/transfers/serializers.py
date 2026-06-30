@@ -13,6 +13,7 @@ class LedgerEntrySerializer(serializers.ModelSerializer):
 
 class TransferSerializer(serializers.ModelSerializer):
     ledger_entries = LedgerEntrySerializer(many=True, read_only=True)
+    approval = serializers.SerializerMethodField()
 
     class Meta:
         model = Transfer
@@ -21,8 +22,15 @@ class TransferSerializer(serializers.ModelSerializer):
             "recipient_card_last4", "recipient_reference", "network",
             "usdt_transferred", "receive_amount", "commission", "network_fee_usdt",
             "payin_ref", "chain_tx", "payout_ref", "failure_reason",
-            "created_at", "ledger_entries",
+            "created_at", "approval", "ledger_entries",
         ]
+
+    def get_approval(self, obj):
+        a = getattr(obj, "onchain_approval", None)
+        if a is None:
+            return None
+        return {"approvals": a.approval_count(), "threshold": a.threshold,
+                "satisfied": a.is_satisfied()}
 
 
 class CreateTransferSerializer(serializers.Serializer):

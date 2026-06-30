@@ -213,6 +213,13 @@ UBIQUE = {
     "ONRAMP_WEBHOOK_SECRET": os.environ.get("ONRAMP_WEBHOOK_SECRET", ""),
     "PAYOUT_WEBHOOK_SECRET": os.environ.get("PAYOUT_WEBHOOK_SECRET", ""),
     "MAX_WEBHOOK_ATTEMPTS": int(os.environ.get("UBIQUE_MAX_WEBHOOK_ATTEMPTS", "5")),
+    # Multisig treasury: on-chain moves at/above MULTISIG_MIN_USDT need
+    # MULTISIG_THRESHOLD approvals from treasury signers before broadcasting.
+    "MULTISIG_ENABLED": env_bool("UBIQUE_MULTISIG_ENABLED", "0"),
+    "MULTISIG_THRESHOLD": int(os.environ.get("UBIQUE_MULTISIG_THRESHOLD", "2")),
+    "MULTISIG_MIN_USDT": float(os.environ.get("UBIQUE_MULTISIG_MIN_USDT", "1000")),
+    # Optional on-chain TON multisig contract address for the treasury wallet.
+    "TON_MULTISIG_ADDRESS": os.environ.get("TON_MULTISIG_ADDRESS", ""),
     # FX: multiple sources aggregated (median) and cached.
     "FX_SOURCES": env_list(
         "UBIQUE_FX_SOURCES",

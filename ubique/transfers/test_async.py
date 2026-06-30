@@ -206,6 +206,54 @@ class DynamicPricingTests(_Base):
         self.assertEqual(self._quote("600").commission, Decimal("3.00"))   # 600 * 0.5% (tier)
 
 
+class MultisigTests(_Base):
+    def setUp(self):
+        super().setUp()
+        self.s1 = User.objects.create_user(phone="+994500000201")
+        self.s2 = User.objects.create_user(phone="+994500000202")
+        for s in (self.s1, self.s2):
+            s.is_treasury_signer = True
+            s.save()
+
+    def _settings(self, **over):
+        base = dict(MULTISIG_ENABLED=True, MULTISIG_THRESHOLD=2, MULTISIG_MIN_USDT=100)
+        base.update(over)
+        return override_settings(UBIQUE=ubique(**base))
+
+    def test_large_transfer_awaits_approval(self):
+        with self._settings():
+            t = self._create(key="ms-a")
+            service.execute(t.id)
+            t.refresh_from_db()
+        self.assertEqual(t.status, Status.APPROVAL_PENDING)
+        self.assertEqual(t.onchain_approval.threshold, 2)
+
+    def test_threshold_approvals_complete_it(self):
+        with self._settings():
+            t = self._create(key="ms-b")
+            service.execute(t.id)
+            service.approve_onchain(Transfer.objects.get(pk=t.id), self.s1)
+            t.refresh_from_db()
+            self.assertEqual(t.status, Status.APPROVAL_PENDING)   # 1 of 2
+            service.approve_onchain(Transfer.objects.get(pk=t.id), self.s2)
+            t.refresh_from_db()
+            self.assertEqual(t.status, Status.COMPLETED)          # 2 of 2
+
+    def test_non_signer_cannot_approve(self):
+        with self._settings():
+            t = self._create(key="ms-c")
+            service.execute(t.id)
+            with self.assertRaises(service.NotASigner):
+                service.approve_onchain(Transfer.objects.get(pk=t.id), self.user)
+
+    def test_below_threshold_skips_approval(self):
+        with self._settings(MULTISIG_MIN_USDT=100000):
+            t = self._create(key="ms-d")
+            service.execute(t.id)
+            t.refresh_from_db()
+        self.assertEqual(t.status, Status.COMPLETED)
+
+
 class LiquidityTests(_Base):
     def test_insufficient_float_blocks_transfer(self):
         with override_settings(UBIQUE=ubique(LIQUIDITY_ENFORCED=True)):

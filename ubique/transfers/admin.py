@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import LedgerEntry, Transfer, WebhookEvent
+from .models import LedgerEntry, OnchainApproval, Transfer, WebhookEvent
+
+
+@admin.register(OnchainApproval)
+class OnchainApprovalAdmin(admin.ModelAdmin):
+    list_display = ("transfer", "approval_count", "threshold", "is_satisfied", "created_at")
+    filter_horizontal = ("approvers",)
 
 
 class LedgerInline(admin.TabularInline):

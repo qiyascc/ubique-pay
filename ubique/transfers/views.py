@@ -1,5 +1,9 @@
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from ubique.wallets.models import PaymentCard
 
@@ -52,3 +56,20 @@ class TransferDetail(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Transfer.objects.filter(user=self.request.user)
+
+
+class TransferApproveView(APIView):
+    """A treasury signer approves a multisig-gated transfer."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        get_object_or_404(Transfer, pk=pk)
+        try:
+            with transaction.atomic():
+                transfer = Transfer.objects.select_for_update().get(pk=pk)
+                service.approve_onchain(transfer, request.user)
+        except service.NotASigner as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        transfer.refresh_from_db()
+        return Response(TransferSerializer(transfer).data)
