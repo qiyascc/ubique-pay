@@ -184,9 +184,15 @@ UBIQUE = {
     "CHAIN_SENDER": os.environ.get("UBIQUE_CHAIN_SENDER", "ubique.providers.mock.MockChainSender"),
     "FX_ORACLE": os.environ.get("UBIQUE_FX_ORACLE", "ubique.providers.mock.MockFxOracle"),
     "NETWORK_FEE_ORACLE": os.environ.get("UBIQUE_FEE_ORACLE", "ubique.providers.mock.MockNetworkFeeOracle"),
-    "SUPPORTED_NETWORKS": env_list("UBIQUE_NETWORKS", "TON,SOLANA,TRON"),
+    # TON-first (the Telegram-native rail with deep USDT liquidity). The router
+    # still picks the cheapest of whatever is listed — add SOLANA/TRON per
+    # corridor to widen routing.
+    "SUPPORTED_NETWORKS": env_list("UBIQUE_NETWORKS", "TON,TRON"),
     "COMMISSION_RATE": float(os.environ.get("UBIQUE_COMMISSION_RATE", "0.005")),
     "FX_SPREAD": float(os.environ.get("UBIQUE_FX_SPREAD", "0.005")),
+    # Third-party rail costs (configurable instead of hard-coded in the engine).
+    "ONRAMP_FEE_RATE": float(os.environ.get("UBIQUE_ONRAMP_FEE_RATE", "0.02")),
+    "PAYOUT_FEE_RATE": float(os.environ.get("UBIQUE_PAYOUT_FEE_RATE", "0.01")),
     "MIN_SEND": float(os.environ.get("UBIQUE_MIN_SEND", "20")),
     "MAX_SEND": float(os.environ.get("UBIQUE_MAX_SEND", "10000")),
     "MAX_DAILY": float(os.environ.get("UBIQUE_MAX_DAILY", "20000")),

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -17,7 +18,7 @@ class QuoteTests(TestCase):
     def test_quote_picks_cheapest_network(self):
         quote = build_quote(send_amount=200, send_currency="USD", receive_currency="AZN")
         oracle = registry.network_fee_oracle()
-        cheapest = min(["TON", "SOLANA", "TRON"], key=oracle.fee_usdt)
+        cheapest = min(settings.UBIQUE["SUPPORTED_NETWORKS"], key=oracle.fee_usdt)
         self.assertEqual(quote.network, cheapest)
         self.assertGreater(quote.receive_amount, Decimal("0"))
 

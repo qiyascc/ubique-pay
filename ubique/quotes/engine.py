@@ -52,18 +52,17 @@ def build_quote(*, send_amount, send_currency, receive_currency) -> Quote:
 
     fx = registry.fx_oracle()
 
-    # 1) Card -> USDT (on-ramp fee taken by the acquiring provider, ~2%).
-    onramp_fee_rate = Decimal("0.02")
-    onramp_fee = send_amount * onramp_fee_rate
+    # 1) Card -> USDT (on-ramp fee taken by the acquiring provider).
+    onramp_fee = send_amount * Decimal(str(cfg["ONRAMP_FEE_RATE"]))
     send_in_usdt = (send_amount - onramp_fee) * fx.rate(send_currency, "USDT")
 
     # 2) Cheapest on-chain network.
     network, network_fee = _cheapest_network()
 
-    # 3) Ubique commission + a flat-ish payout fee (1% here).
+    # 3) Ubique commission + the payout (push-to-card) fee.
     commission = send_amount * Decimal(str(cfg["COMMISSION_RATE"]))
     commission_usdt = commission * fx.rate(send_currency, "USDT")
-    payout_fee_usdt = send_in_usdt * Decimal("0.01")
+    payout_fee_usdt = send_in_usdt * Decimal(str(cfg["PAYOUT_FEE_RATE"]))
 
     usdt_after = send_in_usdt - network_fee - commission_usdt - payout_fee_usdt
     if usdt_after <= 0:
