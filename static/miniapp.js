@@ -53,9 +53,25 @@
 
   $("kyc-btn").onclick = async () => {
     $("kyc-btn").disabled = true;
-    await api("POST", "/auth/kyc/start/");
-    await refresh();
+    const r = await api("POST", "/auth/kyc/start/");
+    const sdkToken = r.data && r.data.sdk_token;
+    if (sdkToken && window.snsWebSdk) {
+      launchSumsub(sdkToken);
+    } else {
+      await refresh(); // demo provider auto-verifies (no SDK token)
+    }
   };
+
+  function launchSumsub(token) {
+    $("kyc-btn").classList.add("hidden");
+    const sdk = snsWebSdk
+      .init(token, () => api("POST", "/auth/kyc/token/").then((r) => r.data.token))
+      .withConf({ lang: "en" })
+      .on("idCheck.onApplicantStatusChanged", () => refresh())
+      .on("idCheck.onApplicantSubmitted", () => setStatus("Verification submitted, reviewing…"))
+      .build();
+    sdk.launch("#sumsub");
+  }
 
   // 3) Wallet / cards
   async function loadWallet() {

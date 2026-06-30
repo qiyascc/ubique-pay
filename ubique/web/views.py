@@ -164,12 +164,15 @@ def miniapp(request):
     # Relaxed CSP only for this page: Telegram SDK + TON Connect bridges.
     response["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://telegram.org https://unpkg.com; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' https://telegram.org https://unpkg.com https://static.sumsub.com; "
+        "style-src 'self' 'unsafe-inline' https://static.sumsub.com; "
         "img-src 'self' data: https:; "
+        "media-src https://*.sumsub.com blob:; "
+        "worker-src 'self' blob:; "
         "connect-src 'self' https://*.tonapi.io https://bridge.tonapi.io "
-        "wss://bridge.tonapi.io https://*.ton.org; "
-        "frame-src https://*.tonapi.io; "
+        "wss://bridge.tonapi.io https://*.ton.org "
+        "https://api.sumsub.com https://*.sumsub.com wss://*.sumsub.com; "
+        "frame-src https://*.tonapi.io https://*.sumsub.com; "
         "frame-ancestors https://web.telegram.org https://*.telegram.org"
     )
     return response

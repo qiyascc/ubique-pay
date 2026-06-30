@@ -103,8 +103,25 @@ class KycStartView(APIView):
         return Response(get_provider().start(request.user))
 
 
+class KycTokenView(APIView):
+    """Fresh SDK access token for the WebSDK token-expiry callback."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        return Response({"token": get_provider().refresh_token(request.user)})
+
+
+_DIGEST_ALGS = {
+    "HMAC_SHA1_HEX": hashlib.sha1,
+    "HMAC_SHA256_HEX": hashlib.sha256,
+    "HMAC_SHA512_HEX": hashlib.sha512,
+}
+
+
 class SumsubWebhookView(APIView):
-    """Sumsub applicant-reviewed webhook (X-Payload-Digest = HMAC-SHA256)."""
+    """Sumsub webhook — verifies X-Payload-Digest using the algorithm named in
+    X-Payload-Digest-Alg (default HMAC_SHA256_HEX)."""
 
     authentication_classes: list = []
     permission_classes = [AllowAny]
@@ -112,7 +129,10 @@ class SumsubWebhookView(APIView):
     def post(self, request):
         secret = settings.SUMSUB_WEBHOOK_SECRET
         signature = request.headers.get("X-Payload-Digest", "")
-        expected = hmac.new(secret.encode(), request.body, hashlib.sha256).hexdigest() if secret else ""
+        alg = _DIGEST_ALGS.get(
+            request.headers.get("X-Payload-Digest-Alg", "HMAC_SHA256_HEX"), hashlib.sha256
+        )
+        expected = hmac.new(secret.encode(), request.body, alg).hexdigest() if secret else ""
         if not secret or not hmac.compare_digest(expected, signature):
             return Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
 

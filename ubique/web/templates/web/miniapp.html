@@ -6,6 +6,7 @@
   <title>Ubique Pay</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://unpkg.com/@tonconnect/ui@2/dist/tonconnect-ui.min.js"></script>
+  <script src="https://static.sumsub.com/idensic/static/sns-websdk-builder.js"></script>
   <link rel="stylesheet" href="{% static 'miniapp.css' %}">
 </head>
 <body>
@@ -21,7 +22,8 @@
     <section id="kyc" class="card hidden">
       <h2>Verify your identity</h2>
       <p class="muted">Required before sending money.</p>
-      <button class="btn" id="kyc-btn">Verify (demo)</button>
+      <button class="btn" id="kyc-btn">Start verification</button>
+      <div id="sumsub"></div>
     </section>
 
     <!-- Wallet -->

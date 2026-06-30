@@ -91,13 +91,24 @@ TELEGRAM_BOT_TOKEN=... PUBLIC_BASE_URL=https://pay.example.com python bot.py
 
 `/start` opens the Mini App; TON Connect manifest is at `/tonconnect-manifest.json`.
 
-## 🪪 KYC (pluggable)
+## 🪪 KYC — full Sumsub integration (pluggable)
 
 `KYC_PROVIDER` selects the verifier: a **demo** provider (auto-verifies) by
-default, or **Sumsub** (`SumsubKycProvider` — signed access-token + a webhook at
-`/api/v1/auth/kyc/webhook/`). Note: Telegram **Passport** only *collects*
-encrypted documents and still needs a verifier like Sumsub for liveness/AML, so
-Sumsub is the engine here; Passport can be added later as a document front-end.
+default, or **Sumsub**, integrated end-to-end:
+
+1. `POST /api/v1/auth/kyc/start/` → signed Sumsub API call mints an **access
+   token** (`userId`, `levelName`, `ttlInSecs`).
+2. The Mini App launches the **Sumsub WebSDK** (`snsWebSdk`) with that token;
+   `POST /api/v1/auth/kyc/token/` refreshes it on expiry.
+3. Sumsub calls `POST /api/v1/auth/kyc/webhook/`; the signature is verified
+   (`X-Payload-Digest` with the algorithm from `X-Payload-Digest-Alg`,
+   HMAC-SHA1/256/512) and `applicantReviewed` → `GREEN`/`RED` flips the user to
+   verified/rejected.
+
+Configure with `SUMSUB_APP_TOKEN`, `SUMSUB_SECRET_KEY`, `SUMSUB_LEVEL_NAME`,
+`SUMSUB_WEBHOOK_SECRET`. Telegram **Passport** only *collects* encrypted
+documents and still needs a verifier like Sumsub for liveness/AML, so Sumsub is
+the engine; Passport can be added later as a document front-end.
 
 ## 🔗 Real on-chain transfers (TON, testnet-ready)
 

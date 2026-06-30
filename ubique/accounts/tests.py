@@ -68,6 +68,52 @@ class TonAmountTests(TestCase):
         self.assertEqual(TonChainSender.to_jetton_units("0.000001"), 1)
 
 
+SUMSUB_SECRET = "sumsub-webhook-secret"
+
+
+@override_settings(SUMSUB_WEBHOOK_SECRET=SUMSUB_SECRET)
+class SumsubWebhookTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(phone="+994500007777")
+
+    def _post(self, answer, sign=True, alg="HMAC_SHA256_HEX"):
+        import hashlib
+        import hmac as _hmac
+        body = json.dumps({
+            "externalUserId": str(self.user.id),
+            "type": "applicantReviewed",
+            "reviewResult": {"reviewAnswer": answer},
+        }).encode()
+        algo = {"HMAC_SHA256_HEX": hashlib.sha256, "HMAC_SHA512_HEX": hashlib.sha512}[alg]
+        digest = _hmac.new(SUMSUB_SECRET.encode(), body, algo).hexdigest()
+        return self.client.post(
+            "/api/v1/auth/kyc/webhook/", data=body, content_type="application/json",
+            HTTP_X_PAYLOAD_DIGEST=(digest if sign else "bad"),
+            HTTP_X_PAYLOAD_DIGEST_ALG=alg,
+        )
+
+    def test_green_verifies_user(self):
+        r = self._post("GREEN")
+        self.assertEqual(r.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.kyc_status, "verified")
+
+    def test_red_rejects_user(self):
+        self._post("RED")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.kyc_status, "rejected")
+
+    def test_bad_signature_is_401(self):
+        r = self._post("GREEN", sign=False)
+        self.assertEqual(r.status_code, 401)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.kyc_status, "unverified")
+
+    def test_sha512_algorithm_supported(self):
+        r = self._post("GREEN", alg="HMAC_SHA512_HEX")
+        self.assertEqual(r.status_code, 200)
+
+
 @override_settings(
     TELEGRAM_BOT_TOKEN=BOT_TOKEN,
     KYC_PROVIDER="ubique.accounts.kyc.DemoKycProvider",

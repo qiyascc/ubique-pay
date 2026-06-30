@@ -31,8 +31,9 @@ class KycProvider(ABC):
     def start(self, user) -> dict:
         """Begin verification; return a dict for the client (status, token…)."""
 
-    def handle_webhook(self, request) -> bool:  # pragma: no cover - provider specific
-        raise NotImplementedError
+    def refresh_token(self, user):
+        """Return a fresh SDK access token (for the WebSDK expiry callback)."""
+        return None
 
 
 class DemoKycProvider(KycProvider):
@@ -43,7 +44,7 @@ class DemoKycProvider(KycProvider):
     def start(self, user):
         user.kyc_status = KycStatus.VERIFIED
         user.save(update_fields=["kyc_status"])
-        return {"provider": "demo", "status": user.kyc_status}
+        return {"provider": "demo", "status": user.kyc_status, "sdk_token": None}
 
 
 class SumsubKycProvider(KycProvider):
@@ -86,15 +87,22 @@ class SumsubKycProvider(KycProvider):
         with urllib.request.urlopen(req, timeout=20) as resp:
             return json.loads(resp.read().decode())
 
-    def start(self, user):
+    def _access_token(self, user, ttl=600):
         path = (
-            f"/resources/accessTokens?userId={user.id}&levelName={self.level}"
+            f"/resources/accessTokens?userId={user.id}"
+            f"&levelName={self.level}&ttlInSecs={ttl}"
         )
-        data = self._signed_request("POST", path)
+        return self._signed_request("POST", path).get("token")
+
+    def start(self, user):
+        token = self._access_token(user)
         if user.kyc_status == KycStatus.UNVERIFIED:
             user.kyc_status = KycStatus.PENDING
             user.save(update_fields=["kyc_status"])
-        return {"provider": "sumsub", "status": user.kyc_status, "sdk_token": data.get("token")}
+        return {"provider": "sumsub", "status": user.kyc_status, "sdk_token": token}
+
+    def refresh_token(self, user):
+        return self._access_token(user)
 
 
 def get_provider() -> KycProvider:
