@@ -1,0 +1,57 @@
+# Local/prod-like stack: web (gunicorn) + Postgres + a maintenance worker that
+# runs the periodic jobs. Copy .env.example to .env first.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-ubique}
+      POSTGRES_USER: ${DB_USER:-ubique}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ubique}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ubique}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DB_NAME: ${DB_NAME:-ubique}
+      DB_USER: ${DB_USER:-ubique}
+      DB_PASSWORD: ${DB_PASSWORD:-ubique}
+      DB_HOST: db
+      GUNICORN_BIND: "0.0.0.0:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DB_NAME: ${DB_NAME:-ubique}
+      DB_USER: ${DB_USER:-ubique}
+      DB_PASSWORD: ${DB_PASSWORD:-ubique}
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    # Run the maintenance loop (reconciliation, webhook retries/delivery).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          python manage.py reconcile_transfers || true
+          python manage.py retry_webhooks || true
+          python manage.py deliver_webhooks || true
+          sleep 30
+        done
+
+volumes:
+  pgdata:

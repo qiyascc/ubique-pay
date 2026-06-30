@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+venv
+*.pyc
+__pycache__
+db.sqlite3
+staticfiles
+media
+.env
+*.md
+.ruff_cache
