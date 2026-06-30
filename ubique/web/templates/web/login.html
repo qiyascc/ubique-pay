@@ -1,0 +1,16 @@
+{% extends "web/base.html" %}
+{% block title %}Log in · Ubique Pay{% endblock %}
+{% block content %}
+<div class="panel" style="max-width:420px;margin:24px auto">
+  <h1>Add phone number</h1>
+  <p class="muted">We'll text you a one-time code.</p>
+  <form method="post">
+    {% csrf_token %}
+    {% for f in form %}
+      <label>{{ f.label }}</label>{{ f }}
+      {% for e in f.errors %}<div class="errornote">{{ e }}</div>{% endfor %}
+    {% endfor %}
+    <div style="margin-top:16px"><button class="btn" type="submit">Send code</button></div>
+  </form>
+</div>
+{% endblock %}

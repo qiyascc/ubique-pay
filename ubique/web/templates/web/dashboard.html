@@ -1,0 +1,61 @@
+{% extends "web/base.html" %}
+{% block title %}Dashboard · Ubique Pay{% endblock %}
+{% block content %}
+
+{% if not kyc_verified %}
+<div class="panel" style="border-color:var(--warn)">
+  <h2 style="color:var(--warn)">Verify your identity</h2>
+  <p class="muted">KYC is required before you can send money. In production this is
+  handled by the on-ramp/KYC vendor; here it's a demo button.</p>
+  <form method="post" action="{% url 'web:verify_kyc' %}">{% csrf_token %}
+    <button class="btn" type="submit">Verify identity (demo)</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="panel" style="display:flex;justify-content:space-between;align-items:center">
+  <div>
+    <h2 style="margin:0">Send money</h2>
+    <span class="muted">Card in → USDT → recipient card, cheapest network.</span>
+  </div>
+  <a class="btn" href="{% url 'web:send' %}">New transfer</a>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Your cards</h2>
+    {% for c in cards %}
+      <div style="padding:6px 0">{{ c.brand }} ····{{ c.last4 }}</div>
+    {% empty %}<p class="muted">No cards yet.</p>{% endfor %}
+    <a class="btn ghost" href="{% url 'web:add_card' %}" style="margin-top:8px">Add card</a>
+  </div>
+  <div class="panel">
+    <h2>Crypto accounts</h2>
+    {% for a in crypto_accounts %}
+      <div style="padding:6px 0">{{ a.network }} · {{ a.address }}</div>
+    {% empty %}<p class="muted">None linked.</p>{% endfor %}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Recent transfers</h2>
+  {% if transfers %}
+  <table>
+    <tr><th>#</th><th>Amount</th><th>Recipient</th><th>Network</th><th>Status</th></tr>
+    {% for t in transfers %}
+    <tr>
+      <td><a href="{% url 'web:transfer_detail' t.id %}">{{ t.id }}</a></td>
+      <td>{{ t.send_amount }} {{ t.send_currency }} → {{ t.receive_amount }} {{ t.receive_currency }}</td>
+      <td>····{{ t.recipient_card_last4 }}</td>
+      <td>{{ t.network }}</td>
+      <td>
+        {% if t.status == 'completed' %}<span class="pill ok">{{ t.get_status_display }}</span>
+        {% elif t.status == 'failed' or t.status == 'refunded' %}<span class="pill bad">{{ t.get_status_display }}</span>
+        {% else %}<span class="pill mid">{{ t.get_status_display }}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">No transfers yet.</p>{% endif %}
+</div>
+{% endblock %}

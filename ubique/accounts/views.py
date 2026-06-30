@@ -15,7 +15,7 @@ class PhoneSerializer(serializers.Serializer):
 
 class VerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
-    code = serializers.CharField(max_length=4)
+    code = serializers.CharField(max_length=6)
 
 
 class RequestOtpView(APIView):
@@ -24,7 +24,10 @@ class RequestOtpView(APIView):
     def post(self, request):
         data = PhoneSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        code = otp.issue(data.validated_data["phone"])
+        try:
+            code = otp.issue(data.validated_data["phone"])
+        except otp.RateLimited as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
         body = {"detail": "OTP sent."}
         if settings.DEBUG:  # convenience for local/demo use only
             body["debug_code"] = code
@@ -38,7 +41,11 @@ class VerifyOtpView(APIView):
         data = VerifySerializer(data=request.data)
         data.is_valid(raise_exception=True)
         phone = data.validated_data["phone"]
-        if not otp.verify(phone, data.validated_data["code"]):
+        try:
+            ok = otp.verify(phone, data.validated_data["code"])
+        except otp.RateLimited as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        if not ok:
             return Response(
                 {"detail": "Invalid or expired code."},
                 status=status.HTTP_400_BAD_REQUEST,

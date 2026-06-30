@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ubique Pay{% endblock %}</title>
+  <style>
+    :root{
+      --bg:#0d0f0e; --panel:#15191a; --panel2:#1b2122; --line:#26302f;
+      --text:#e7efee; --muted:#8aa09d; --mint:#5bffb4; --mint2:#4ee9a3;
+      --danger:#ff6b6b; --warn:#ffd166;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+    a{color:var(--mint);text-decoration:none}
+    .wrap{max-width:920px;margin:0 auto;padding:24px}
+    .nav{display:flex;align-items:center;justify-content:space-between;
+      padding:16px 24px;border-bottom:1px solid var(--line)}
+    .brand{font-weight:700;letter-spacing:-.02em;font-size:1.15rem}
+    .brand b{color:var(--mint)}
+    .nav a{color:var(--muted);margin-left:18px;font-size:.92rem}
+    .nav a:hover{color:var(--text)}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px}
+    h1{font-size:1.9rem;letter-spacing:-.02em;margin:.2em 0}
+    h2{font-size:1.15rem;margin:0 0 14px}
+    .muted{color:var(--muted)}
+    .btn{display:inline-block;background:var(--mint);color:#04130c;font-weight:600;
+      border:0;border-radius:999px;padding:12px 22px;cursor:pointer;font-size:.98rem}
+    .btn:hover{background:var(--mint2)}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+    .btn.ghost:hover{border-color:var(--mint)}
+    input,select{width:100%;padding:12px 14px;background:#0c0f0e;border:1px solid var(--line);
+      border-radius:10px;color:var(--text);font-size:1rem;margin-bottom:4px}
+    input:focus,select:focus{outline:2px solid var(--mint);border-color:var(--mint)}
+    label{display:block;font-size:.82rem;color:var(--muted);margin:12px 0 6px}
+    .row{display:flex;gap:14px;flex-wrap:wrap}
+    .row>div{flex:1;min-width:160px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);font-size:.92rem}
+    th{color:var(--muted);font-weight:500}
+    .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.76rem;font-weight:600}
+    .pill.ok{background:#0f3b27;color:var(--mint)}
+    .pill.bad{background:#3b1414;color:var(--danger)}
+    .pill.mid{background:#3b3413;color:var(--warn)}
+    .msg{padding:11px 14px;border-radius:10px;margin-bottom:12px;font-size:.9rem;border:1px solid}
+    .msg.info{background:#0f2f3b1a;border-color:#1d6f87;color:#9fdcef}
+    .msg.success{background:#0f3b271a;border-color:#15803d;color:var(--mint)}
+    .msg.error,.msg.warning{background:#3b14141a;border-color:#b91c1c;color:var(--danger)}
+    .kpi{display:flex;gap:10px;align-items:baseline}
+    .kpi b{font-size:1.7rem;color:var(--mint)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    @media(max-width:680px){.grid{grid-template-columns:1fr}}
+    .errornote{color:var(--danger);font-size:.82rem}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <div class="brand">Ubique<b> Pay</b></div>
+    <div>
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'web:dashboard' %}">Dashboard</a>
+        <a href="{% url 'web:send' %}">Send</a>
+        <a href="{% url 'web:logout' %}">Log out</a>
+      {% else %}
+        <a href="{% url 'web:login' %}">Log in</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="wrap">
+    {% if messages %}
+      {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

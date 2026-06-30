@@ -1,0 +1,34 @@
+{% extends "web/base.html" %}
+{% block title %}Transfer #{{ t.id }} · Ubique Pay{% endblock %}
+{% block content %}
+<div class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h1 style="margin:0">Transfer #{{ t.id }}</h1>
+    {% if t.status == 'completed' %}<span class="pill ok">{{ t.get_status_display }}</span>
+    {% elif t.status == 'failed' or t.status == 'refunded' %}<span class="pill bad">{{ t.get_status_display }}</span>
+    {% else %}<span class="pill mid">{{ t.get_status_display }}</span>{% endif %}
+  </div>
+  {% if t.failure_reason %}<p class="errornote">{{ t.failure_reason }}</p>{% endif %}
+  <div class="kpi" style="margin-top:8px">
+    <b>{{ t.receive_amount }} {{ t.receive_currency }}</b>
+    <span class="muted">to ····{{ t.recipient_card_last4 }} {% if t.recipient_reference %}({{ t.recipient_reference }}){% endif %}</span>
+  </div>
+  <p class="muted">{{ t.send_amount }} {{ t.send_currency }} · {{ t.usdt_transferred }} USDT over {{ t.network }}
+  {% if t.chain_tx %}· tx {{ t.chain_tx }}{% endif %}</p>
+</div>
+
+<div class="panel">
+  <h2>Ledger</h2>
+  <table>
+    <tr><th>Account</th><th>Direction</th><th style="text-align:right">Amount</th></tr>
+    {% for e in t.ledger_entries.all %}
+    <tr>
+      <td>{{ e.account }}</td>
+      <td>{{ e.get_direction_display }}</td>
+      <td style="text-align:right">{{ e.amount }} {{ e.currency }}</td>
+    </tr>
+    {% empty %}<tr><td colspan="3" class="muted">No ledger entries.</td></tr>{% endfor %}
+  </table>
+</div>
+<a class="btn ghost" href="{% url 'web:dashboard' %}">Back to dashboard</a>
+{% endblock %}

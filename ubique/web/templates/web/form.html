@@ -1,0 +1,18 @@
+{% extends "web/base.html" %}
+{% block title %}{{ title }} · Ubique Pay{% endblock %}
+{% block content %}
+<div class="panel" style="max-width:460px;margin:24px auto">
+  <h1>{{ title }}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {% for f in form %}
+      <label>{{ f.label }}</label>{{ f }}
+      {% for e in f.errors %}<div class="errornote">{{ e }}</div>{% endfor %}
+    {% endfor %}
+    <div style="margin-top:16px">
+      <button class="btn" type="submit">Save</button>
+      <a class="btn ghost" href="{% url 'web:dashboard' %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

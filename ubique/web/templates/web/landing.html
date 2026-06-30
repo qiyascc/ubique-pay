@@ -1,0 +1,27 @@
+{% extends "web/base.html" %}
+{% block content %}
+<div class="panel" style="text-align:center;padding:48px 24px">
+  <h1>Send money to <span style="color:var(--mint)">anyone, anywhere.</span></h1>
+  <p class="muted" style="max-width:520px;margin:8px auto 24px">
+    Card in, card out — settled on-chain as USDT over the cheapest network.
+    Lower fees than traditional remittance, in minutes, not days.
+  </p>
+  <a class="btn" href="{% url 'web:login' %}">Get started</a>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Why Ubique</h2>
+    <p class="muted">No hidden FX spread. A transparent quote shows every fee
+    before you confirm. The stablecoin rail is invisible — you and your
+    recipient stay in local currency.</p>
+  </div>
+  <div class="panel">
+    <h2>Typical cost</h2>
+    <div class="kpi"><b>~1.5–4%</b><span class="muted">all-in</span></div>
+    <p class="muted" style="margin-top:8px">vs 4–6%+ for card transfers at
+    Western Union and ~6.5% global average. See
+    <a href="https://github.com/qiyascc/ubique-pay/blob/main/COMPETITORS.md">competitor analysis</a>.</p>
+  </div>
+</div>
+{% endblock %}

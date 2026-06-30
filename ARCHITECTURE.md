@@ -116,6 +116,6 @@ plug into licensed providers; the **licensing and provider contracts are not**.
 
 ## 5. Running
 
-See [`backend/README.md`](backend/README.md). The mock providers let you run the
-full sender → recipient flow locally with `python manage.py runserver` and the
-test suite (`python manage.py test`).
+See [`README.md`](README.md). The mock providers let you run the full
+sender → recipient flow locally with `python install.py` + `manage.py runserver`
+and the test suite (`python manage.py test`).

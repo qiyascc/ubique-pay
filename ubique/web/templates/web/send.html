@@ -1,0 +1,40 @@
+{% extends "web/base.html" %}
+{% block title %}Send money · Ubique Pay{% endblock %}
+{% block content %}
+<div class="panel" style="max-width:560px;margin:0 auto">
+  <h1>Send money</h1>
+  <form method="post">
+    {% csrf_token %}
+    <label>{{ form.source_card.label }}</label>{{ form.source_card }}
+    <div class="row">
+      <div><label>Amount</label>{{ form.send_amount }}</div>
+      <div><label>From</label>{{ form.send_currency }}</div>
+      <div><label>To</label>{{ form.receive_currency }}</div>
+    </div>
+    <label>{{ form.recipient_card_last4.label }}</label>{{ form.recipient_card_last4 }}
+    <label>{{ form.recipient_reference.label }}</label>{{ form.recipient_reference }}
+    {% for f in form %}{% for e in f.errors %}<div class="errornote">{{ f.label }}: {{ e }}</div>{% endfor %}{% endfor %}
+
+    <div style="margin-top:16px">
+      <button class="btn ghost" type="submit" name="action" value="preview">Get quote</button>
+      {% if quote %}<button class="btn" type="submit" name="action" value="confirm">Confirm &amp; send</button>{% endif %}
+    </div>
+  </form>
+</div>
+
+{% if quote %}
+<div class="panel" style="max-width:560px;margin:18px auto">
+  <h2>Quote</h2>
+  <table>
+    <tr><td>You send</td><td style="text-align:right">{{ quote.send_amount }} {{ quote.send_currency }}</td></tr>
+    <tr><td class="muted">On-ramp (card) fee</td><td style="text-align:right" class="muted">−{{ quote.onramp_fee }} {{ quote.send_currency }}</td></tr>
+    <tr><td class="muted">Ubique commission</td><td style="text-align:right" class="muted">−{{ quote.commission }} {{ quote.send_currency }}</td></tr>
+    <tr><td class="muted">Network ({{ quote.network }})</td><td style="text-align:right" class="muted">−{{ quote.network_fee_usdt }} USDT</td></tr>
+    <tr><td class="muted">Payout fee</td><td style="text-align:right" class="muted">−{{ quote.payout_fee }} USDT</td></tr>
+    <tr><td>Sent on-chain</td><td style="text-align:right">{{ quote.usdt_transferred }} USDT</td></tr>
+    <tr><td><b>Recipient gets</b></td><td style="text-align:right"><b style="color:var(--mint)">{{ quote.receive_amount }} {{ quote.receive_currency }}</b></td></tr>
+  </table>
+  <p class="muted" style="margin-top:10px">Routed over <b>{{ quote.network }}</b> — the cheapest available network.</p>
+</div>
+{% endif %}
+{% endblock %}
