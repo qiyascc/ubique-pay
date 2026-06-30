@@ -88,6 +88,16 @@
 {% endif %}
 
 <div class="panel">
+  <h2>Trial balance <span class="muted" style="font-size:.8rem">(net credits − debits)</span></h2>
+  <table>
+    <tr><th>Account</th><th>Currency</th><th style="text-align:right">Net</th></tr>
+    {% for b in trial_balance %}
+    <tr><td>{{ b.account }}</td><td>{{ b.currency }}</td><td style="text-align:right">{{ b.net }}</td></tr>
+    {% empty %}<tr><td colspan="3" class="muted">No ledger entries yet.</td></tr>{% endfor %}
+  </table>
+</div>
+
+<div class="panel">
   <h2>Recent transfers</h2>
   <table>
     <tr><th>#</th><th>User</th><th>Amount</th><th>Net</th><th>Status</th></tr>

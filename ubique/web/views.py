@@ -277,5 +277,14 @@ def ops_dashboard(request):
         "held_for_review": qs.filter(
             risk_decision="review", review_released=False, status=Status.QUOTED
         ).select_related("user"),
+        "trial_balance": _trial_balance(),
     }
     return render(request, "web/ops.html", ctx)
+
+
+def _trial_balance():
+    from ubique.transfers.ledger import balances
+    return [
+        {"account": acct, "currency": ccy, "net": net}
+        for (acct, ccy), net in sorted(balances().items())
+    ]

@@ -262,6 +262,25 @@ class OutboundWebhookTests(_Base):
         self.assertEqual(OutboundDelivery.objects.count(), 0)
 
 
+class LedgerIntegrityTests(_Base):
+    def test_trial_balance_and_usdt_conservation(self):
+        from ubique.transfers.ledger import (
+            balances,
+            completed_without_payout,
+            usdt_is_conserved,
+        )
+        t = self._create(key="lg1")
+        service.execute(t.id)
+        bal = balances()
+        # USDT nets to zero per pool (in == out); fiat accounts accumulate.
+        self.assertEqual(bal.get(("treasury_usdt", "USDT")), Decimal("0"))
+        self.assertEqual(bal.get(("payout_pool", "USDT")), Decimal("0"))
+        self.assertEqual(usdt_is_conserved(), Decimal("0"))
+        self.assertGreater(bal.get(("ubique_revenue", "USD"), Decimal("0")), 0)
+        self.assertGreater(bal.get(("recipient_card", "AZN"), Decimal("0")), 0)
+        self.assertEqual(completed_without_payout(), [])
+
+
 class RiskEngineTests(_Base):
     def test_high_amount_is_held_for_review(self):
         t = self._create(key="rk1", amount="1500")
