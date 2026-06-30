@@ -273,6 +273,8 @@ UBIQUE = {
     "PAYOUT_WEBHOOK_SECRET": os.environ.get("PAYOUT_WEBHOOK_SECRET", ""),
     "MAX_WEBHOOK_ATTEMPTS": int(os.environ.get("UBIQUE_MAX_WEBHOOK_ATTEMPTS", "5")),
     "OUTBOUND_WEBHOOK_MAX_ATTEMPTS": int(os.environ.get("UBIQUE_OUTBOUND_WEBHOOK_MAX_ATTEMPTS", "6")),
+    # End-user notification channels.
+    "NOTIFIERS": env_list("UBIQUE_NOTIFIERS", "ubique.common.notify.ConsoleNotifier"),
     # Multisig treasury: on-chain moves at/above MULTISIG_MIN_USDT need
     # MULTISIG_THRESHOLD approvals from treasury signers before broadcasting.
     "MULTISIG_ENABLED": env_bool("UBIQUE_MULTISIG_ENABLED", "0"),

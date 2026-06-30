@@ -262,6 +262,31 @@ class OutboundWebhookTests(_Base):
         self.assertEqual(OutboundDelivery.objects.count(), 0)
 
 
+from ubique.common.notify import Notifier  # noqa: E402
+
+
+class RecordingNotifier(Notifier):
+    sent = []
+
+    def send(self, user, event, message):
+        RecordingNotifier.sent.append((event, message))
+
+
+class NotificationTests(_Base):
+    def setUp(self):
+        super().setUp()
+        RecordingNotifier.sent = []
+
+    def test_completed_transfer_notifies_user(self):
+        with override_settings(
+            UBIQUE=ubique(NOTIFIERS=["ubique.transfers.test_async.RecordingNotifier"])
+        ):
+            t = self._create(key="nt1")
+            service.execute(t.id)
+        events = [e for e, _ in RecordingNotifier.sent]
+        self.assertIn("transfer.completed", events)
+
+
 class LedgerIntegrityTests(_Base):
     def test_trial_balance_and_usdt_conservation(self):
         from ubique.transfers.ledger import (

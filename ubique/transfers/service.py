@@ -20,6 +20,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from ubique.audit.log import log as audit_log
+from ubique.common.notify import dispatch as notify_user
 from ubique.providers import registry
 from ubique.quotes.engine import build_quote
 
@@ -258,6 +259,9 @@ def complete_payout(transfer):
     audit_log("transfer.completed", target=f"transfer:{transfer.id}",
               amount=str(transfer.receive_amount), currency=transfer.receive_currency)
     emit_event("transfer.completed", _event_payload(transfer))
+    notify_user(transfer.user, "transfer.completed",
+                f"✅ {transfer.receive_amount} {transfer.receive_currency} sent to "
+                f"····{transfer.recipient_card_last4}.")
     if settings.UBIQUE.get("LIQUIDITY_ENFORCED"):
         from django.db.models import F
 
@@ -272,6 +276,8 @@ def fail(transfer, reason):
         transfer.advance(Status.FAILED, failure_reason=reason[:255])
         audit_log("transfer.failed", target=f"transfer:{transfer.id}", reason=reason[:255])
         emit_event("transfer.failed", _event_payload(transfer))
+        notify_user(transfer.user, "transfer.failed",
+                    "⚠️ Your transfer could not be completed; no funds were moved.")
 
 
 def refund(transfer):
@@ -302,6 +308,8 @@ def refund(transfer):
     audit_log("transfer.refunded", target=f"transfer:{transfer.id}",
               amount=str(transfer.send_amount), currency=transfer.send_currency)
     emit_event("transfer.refunded", _event_payload(transfer))
+    notify_user(transfer.user, "transfer.refunded",
+                f"↩️ {transfer.send_amount} {transfer.send_currency} has been refunded.")
     return transfer
 
 
