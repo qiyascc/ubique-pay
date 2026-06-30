@@ -1,0 +1,74 @@
+{% extends "web/base.html" %}
+{% block title %}Operations · Ubique Pay{% endblock %}
+{% block content %}
+<h1>Operations</h1>
+
+<div class="grid" style="grid-template-columns:repeat(4,1fr)">
+  <div class="panel"><div class="muted">Transfers</div><div class="kpi"><b>{{ total }}</b></div></div>
+  <div class="panel"><div class="muted">Completed</div><div class="kpi"><b style="color:var(--mint)">{{ completed }}</b></div></div>
+  <div class="panel"><div class="muted">In flight</div><div class="kpi"><b style="color:var(--warn)">{{ in_flight }}</b></div></div>
+  <div class="panel"><div class="muted">Failed</div><div class="kpi"><b style="color:var(--danger)">{{ failed }}</b></div></div>
+</div>
+
+<div class="panel">
+  <h2>Status mix</h2>
+  {% for s in status_rows %}
+    <div style="display:flex;align-items:center;gap:10px;margin:6px 0">
+      <div class="muted" style="width:150px;font-size:.85rem">{{ s.label }}</div>
+      <div style="flex:1;background:#0c0f0e;border-radius:6px;overflow:hidden">
+        <div style="width:{{ s.pct }}%;min-width:2px;height:14px;background:{% if s.value == 'completed' %}var(--mint){% elif s.value == 'failed' or s.value == 'refunded' %}var(--danger){% else %}var(--warn){% endif %}"></div>
+      </div>
+      <div style="width:46px;text-align:right">{{ s.n }}</div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Volume &amp; revenue (completed)</h2>
+    <table>
+      <tr><th>Currency</th><th style="text-align:right">Sent</th><th style="text-align:right">Commission</th></tr>
+      {% for v in volume %}
+      <tr>
+        <td>{{ v.send_currency }}</td>
+        <td style="text-align:right">{{ v.total }}</td>
+        <td style="text-align:right" class="muted">
+          {% for r in revenue %}{% if r.send_currency == v.send_currency %}{{ r.total }}{% endif %}{% endfor %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="3" class="muted">No completed transfers yet.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="panel">
+    <h2>Treasury float {% if liquidity_enforced %}<span class="pill ok">enforced</span>{% else %}<span class="pill mid">off</span>{% endif %}</h2>
+    <table>
+      <tr><th>Currency</th><th style="text-align:right">Available</th></tr>
+      {% for b in treasury %}
+      <tr><td>{{ b.currency }}</td><td style="text-align:right">{{ b.available }}</td></tr>
+      {% empty %}<tr><td colspan="2" class="muted">No floats configured.</td></tr>{% endfor %}
+    </table>
+    <p class="muted" style="margin-top:10px">Corridors: {{ corridors_enabled }}/{{ corridors_total }} enabled ·
+      <a href="/admin/corridors/corridor/">manage</a></p>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Recent transfers</h2>
+  <table>
+    <tr><th>#</th><th>User</th><th>Amount</th><th>Net</th><th>Status</th></tr>
+    {% for t in recent %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td class="muted">{{ t.user.phone }}</td>
+      <td>{{ t.send_amount }} {{ t.send_currency }} → {{ t.receive_amount }} {{ t.receive_currency }}</td>
+      <td>{{ t.network }}</td>
+      <td>
+        {% if t.status == 'completed' %}<span class="pill ok">{{ t.get_status_display }}</span>
+        {% elif t.status == 'failed' or t.status == 'refunded' %}<span class="pill bad">{{ t.get_status_display }}</span>
+        {% else %}<span class="pill mid">{{ t.get_status_display }}</span>{% endif %}
+      </td>
+    </tr>
+    {% empty %}<tr><td colspan="5" class="muted">No transfers yet.</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -5,6 +5,24 @@ from ubique.accounts.models import KycStatus, User
 
 
 @override_settings(DEBUG=True)
+class OpsDashboardTests(TestCase):
+    def test_staff_sees_dashboard(self):
+        User.objects.create_user(phone="+994500000010")  # ensure a user exists
+        staff = User.objects.create_superuser(phone="+994500000011", password="Str0ng!Pass99")
+        self.client.force_login(staff)
+        r = self.client.get("/ops/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Operations")
+        self.assertContains(r, "Status mix")
+
+    def test_non_staff_blocked(self):
+        user = User.objects.create_user(phone="+994500000012")
+        self.client.force_login(user)
+        r = self.client.get("/ops/")
+        self.assertEqual(r.status_code, 302)  # redirected to admin login
+
+
+@override_settings(DEBUG=True)
 class WebFlowTests(TestCase):
     def test_landing_renders(self):
         r = self.client.get("/")

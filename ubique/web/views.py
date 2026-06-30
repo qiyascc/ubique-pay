@@ -2,10 +2,15 @@ import uuid
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+
+from ubique.corridors.models import Corridor, TreasuryBalance
+from ubique.transfers.state import Status
 
 from ubique.accounts import otp
 from ubique.accounts.models import KycStatus, User
@@ -187,3 +192,47 @@ def tonconnect_manifest(request):
         "termsOfUseUrl": base + "/",
         "privacyPolicyUrl": base + "/",
     })
+
+
+@staff_member_required
+def ops_dashboard(request):
+    """Operations dashboard: volume, status mix, revenue, treasury, recent."""
+    from ubique.transfers.models import Transfer
+
+    qs = Transfer.objects.all()
+    total = qs.count()
+
+    status_counts = {row["status"]: row["n"]
+                     for row in qs.values("status").annotate(n=Count("id"))}
+    status_rows = []
+    for value, label in Status.choices:
+        n = status_counts.get(value, 0)
+        status_rows.append({
+            "label": label, "n": n,
+            "pct": round(100 * n / total) if total else 0,
+            "value": value,
+        })
+
+    completed = qs.filter(status=Status.COMPLETED)
+    volume = list(completed.values("send_currency").annotate(total=Sum("send_amount")))
+    revenue = list(completed.values("send_currency").annotate(total=Sum("commission")))
+    paid_out = list(completed.values("receive_currency").annotate(total=Sum("receive_amount")))
+
+    ctx = {
+        "total": total,
+        "completed": status_counts.get(Status.COMPLETED, 0),
+        "failed": status_counts.get(Status.FAILED, 0),
+        "in_flight": total - status_counts.get(Status.COMPLETED, 0)
+                     - status_counts.get(Status.FAILED, 0)
+                     - status_counts.get(Status.REFUNDED, 0),
+        "status_rows": status_rows,
+        "volume": volume,
+        "revenue": revenue,
+        "paid_out": paid_out,
+        "treasury": TreasuryBalance.objects.all(),
+        "corridors_enabled": Corridor.objects.filter(enabled=True).count(),
+        "corridors_total": Corridor.objects.count(),
+        "recent": qs.select_related("user")[:12],
+        "liquidity_enforced": settings.UBIQUE.get("LIQUIDITY_ENFORCED"),
+    }
+    return render(request, "web/ops.html", ctx)

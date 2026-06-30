@@ -14,6 +14,7 @@ urlpatterns = [
     path("kyc/verify/", views.verify_kyc, name="verify_kyc"),
     path("send/", views.send, name="send"),
     path("transfers/<int:pk>/", views.transfer_detail, name="transfer_detail"),
+    path("ops/", views.ops_dashboard, name="ops"),
     # Telegram Mini App
     path("app/", views.miniapp, name="miniapp"),
     path("tonconnect-manifest.json", views.tonconnect_manifest, name="tonconnect_manifest"),

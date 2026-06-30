@@ -147,6 +147,9 @@ A `TreasuryBalance` holds the **payout float** per currency. With
 has enough float, which is debited on payout — so you never promise a payout you
 can't fund.
 
+A staff-only **operations dashboard** at `/ops/` shows live volume, the
+status mix, revenue, treasury floats and recent transfers.
+
 ## 🏦 Payment-system internals
 
 Built like a real rail, not a demo:
