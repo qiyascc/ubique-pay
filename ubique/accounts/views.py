@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from . import otp
 from .models import User
+from .telegram import TelegramAuthError, validate_init_data
 
 
 class PhoneSerializer(serializers.Serializer):
@@ -55,9 +56,36 @@ class VerifyOtpView(APIView):
         return Response({"token": token.key, "kyc_status": user.kyc_status})
 
 
+class TelegramAuthView(APIView):
+    """Authenticate a Telegram Mini App user from validated initData."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        init_data = request.data.get("init_data", "")
+        try:
+            tg_user = validate_init_data(init_data, settings.TELEGRAM_BOT_TOKEN)
+        except TelegramAuthError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user, _ = User.objects.get_or_create(
+            telegram_id=tg_user["id"],
+            defaults={
+                "phone": f"tg:{tg_user['id']}",
+                "telegram_username": tg_user.get("username", ""),
+            },
+        )
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({"token": token.key, "kyc_status": user.kyc_status})
+
+
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         u = request.user
-        return Response({"phone": u.phone, "kyc_status": u.kyc_status})
+        return Response({
+            "phone": u.phone,
+            "telegram_id": u.telegram_id,
+            "kyc_status": u.kyc_status,
+        })

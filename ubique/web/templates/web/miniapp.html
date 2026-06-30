@@ -1,0 +1,31 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ubique Pay</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@2/dist/tonconnect-ui.min.js"></script>
+  <style>
+    body{margin:0;background:#0d0f0e;color:#e7efee;font-family:system-ui,sans-serif;
+      min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+    .brand{font-weight:700;font-size:1.4rem}.brand b{color:#5bffb4}
+    .card{background:#15191a;border:1px solid #26302f;border-radius:16px;padding:24px;max-width:380px;width:100%;text-align:center}
+    .muted{color:#8aa09d;font-size:.9rem}
+    .status{margin:14px 0;padding:10px;border-radius:10px;font-size:.9rem;border:1px solid #26302f}
+    .status.ok{color:#5bffb4;border-color:#15803d}
+    .status.bad{color:#ff6b6b;border-color:#b91c1c}
+    #ton-connect{display:flex;justify-content:center;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">Ubique<b> Pay</b></div>
+    <p class="muted">Telegram Mini App · <span id="tg-user">guest</span></p>
+    <div id="status" class="status">Connecting…</div>
+    <div id="ton-connect"></div>
+    <p class="muted" style="margin-top:16px">Link a TON wallet for USDT, then send money to any card.</p>
+  </div>
+  <script src="{% static 'miniapp.js' %}"></script>
+</body>
+</html>

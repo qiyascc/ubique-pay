@@ -72,6 +72,30 @@ shown on screen), verify identity (demo), add a card, and send money.
 
 - Web UI: `/`
 - REST API: `/api/v1/` · Admin: `/admin/`
+- Telegram Mini App: `/app/`
+
+## 📲 Telegram Mini App
+
+The Mini App (`/app/`) authenticates the Telegram user with **real signed
+`initData`** — HMAC-SHA256 validation against the bot token, per Telegram's
+spec (`ubique/accounts/telegram.py`) — and wires a **TON Connect** button so
+users can link a TON wallet for USDT.
+
+```bash
+# https PUBLIC_BASE_URL is required (Telegram only opens https Web Apps)
+TELEGRAM_BOT_TOKEN=... PUBLIC_BASE_URL=https://pay.example.com python bot.py
+```
+
+`/start` opens the Mini App. TON Connect manifest is served at
+`/tonconnect-manifest.json`.
+
+## 🔗 Real providers
+
+The on-chain leg ships **real** code: `TonChainSender` performs an actual
+USDT-TON jetton transfer via `tonutils` (6 decimals, ~0.05 TON gas), and
+`TransakOnRampProvider` calls Transak's Orders API. Enable them via the
+`UBIQUE_*` env vars (see `.env.example`); they're credential-gated and the
+mocks stay the default so the project always runs.
 
 ## 🔌 REST API (`/api/v1/`)
 

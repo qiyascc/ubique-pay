@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ubique.accounts import otp
@@ -151,3 +152,31 @@ def send(request):
 def transfer_detail(request, pk):
     transfer = get_object_or_404(Transfer, pk=pk, user=request.user)
     return render(request, "web/transfer_detail.html", {"t": transfer})
+
+
+def miniapp(request):
+    """The Telegram Mini App page (authenticates via signed initData)."""
+    response = render(request, "web/miniapp.html")
+    # Relaxed CSP only for this page: Telegram SDK + TON Connect bridges.
+    response["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' https://telegram.org https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://*.tonapi.io https://bridge.tonapi.io "
+        "wss://bridge.tonapi.io https://*.ton.org; "
+        "frame-src https://*.tonapi.io; "
+        "frame-ancestors https://web.telegram.org https://*.telegram.org"
+    )
+    return response
+
+
+def tonconnect_manifest(request):
+    base = settings.PUBLIC_BASE_URL.rstrip("/")
+    return JsonResponse({
+        "url": base,
+        "name": "Ubique Pay",
+        "iconUrl": base + "/static/icon.png",
+        "termsOfUseUrl": base + "/",
+        "privacyPolicyUrl": base + "/",
+    })

@@ -27,6 +27,8 @@ class KycStatus(models.TextChoices):
 
 class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=20, unique=True)
+    telegram_id = models.BigIntegerField(unique=True, null=True, blank=True)
+    telegram_username = models.CharField(max_length=64, blank=True)
     kyc_status = models.CharField(
         max_length=12, choices=KycStatus.choices, default=KycStatus.UNVERIFIED
     )

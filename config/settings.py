@@ -171,6 +171,12 @@ CONTENT_SECURITY_POLICY = os.environ.get(
     "script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 )
 
+# --- Telegram Mini App ---------------------------------------------------
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "")
+# Public base URL of this app, used in the TON Connect manifest / Mini App.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000")
+
 # --- Ubique Pay configuration --------------------------------------------
 UBIQUE = {
     "ONRAMP_PROVIDER": os.environ.get("UBIQUE_ONRAMP", "ubique.providers.mock.MockOnRampProvider"),
